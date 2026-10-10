@@ -397,24 +397,40 @@ function App(){
           {tab==='dashboard'&&dash&&<>
             <div className="metrics">
               <div className="metric">
-                <span className="metric-label">Saldo Real em Contas</span>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                  <span className="metric-label">Saldo Real em Contas</span>
+                  <div className="metric-icon-badge" style={{background:'#ecfdf5',color:'#059669'}}><Wallet size={18}/></div>
+                </div>
                 <span className="metric-val">{money(dash.balance)}</span>
                 <span className="metric-sub">Liquidez disponível imediata</span>
               </div>
               <div className="metric">
-                <span className="metric-label">Saldo Projetado</span>
-                <span className="metric-val" style={{color:'#137e77'}}>{money(dash.projectedBalance||dash.balance)}</span>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                  <span className="metric-label">Saldo Projetado</span>
+                  <div className="metric-icon-badge" style={{background:'#f0fdfa',color:'#0d9488'}}><TrendingUp size={18}/></div>
+                </div>
+                <span className="metric-val" style={{color:'#0d9488'}}>{money(dash.projectedBalance||dash.balance)}</span>
                 <span className="metric-sub">Incorporando agendamentos</span>
               </div>
               <div className="metric">
-                <span className="metric-label">Receitas do Mês</span>
-                <span className="metric-val" style={{color:'#13a294'}}>{money(dash.income)}</span>
-                {dash.scheduledIncome&&Number(dash.scheduledIncome)>0&&<span className="metric-sub" style={{color:'#137e77'}}>+{money(dash.scheduledIncome)} a receber</span>}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                  <span className="metric-label">Receitas do Mês</span>
+                  <div className="metric-icon-badge" style={{background:'#ecfdf5',color:'#10b981'}}><ArrowUpRight size={18}/></div>
+                </div>
+                <span className="metric-val" style={{color:'#10b981'}}>{money(dash.income)}</span>
+                <span className="metric-sub" style={{color:dash.scheduledIncome&&Number(dash.scheduledIncome)>0?'#059669':'inherit'}}>
+                  {dash.scheduledIncome&&Number(dash.scheduledIncome)>0?`+${money(dash.scheduledIncome)} a receber`:'Total realizado'}
+                </span>
               </div>
               <div className="metric">
-                <span className="metric-label">Despesas do Mês</span>
-                <span className="metric-val" style={{color:'#be6a55'}}>{money(dash.expense)}</span>
-                {dash.scheduledExpense&&Number(dash.scheduledExpense)>0&&<span className="metric-sub" style={{color:'#df8c36'}}>+{money(dash.scheduledExpense)} previstas</span>}
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                  <span className="metric-label">Despesas do Mês</span>
+                  <div className="metric-icon-badge" style={{background:'#fef2f2',color:'#ef4444'}}><ArrowDownRight size={18}/></div>
+                </div>
+                <span className="metric-val" style={{color:'#ef4444'}}>{money(dash.expense)}</span>
+                <span className="metric-sub" style={{color:dash.scheduledExpense&&Number(dash.scheduledExpense)>0?'#d97706':'inherit'}}>
+                  {dash.scheduledExpense&&Number(dash.scheduledExpense)>0?`+${money(dash.scheduledExpense)} previstas`:'Total realizado'}
+                </span>
               </div>
             </div>
 
@@ -494,27 +510,41 @@ function App(){
           {tab==='goals'&&<section className="panel">
             <div className="panel-title">
               <h2>Metas Financeiras & Sonhos</h2>
-              <button className="secondary" disabled={!current} onClick={()=>setModal('goal')}>+ Nova Meta</button>
+              <button className="secondary" disabled={!current} onClick={()=>setModal('goal')}><Plus size={15}/> Nova Meta</button>
             </div>
             {!current?<Empty text="Selecione um perfil para gerenciar metas financeiras."/>:goals.length===0?<Empty text="Nenhuma meta cadastrada."/>:(
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:'16px',marginTop:'16px'}}>
+              <div className="grid-cards">
                 {goals.map(g=>(
-                  <div key={g.id} style={{background:'#ffffff',border:'1px solid #e1e7f0',borderRadius:'12px',padding:'16px',boxShadow:'0 2px 4px rgba(0,0,0,0.02)'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                      <h3 style={{fontSize:'15px',fontWeight:700,margin:0}}>{g.name}</h3>
-                      <span className="pill" style={{background:g.status==='COMPLETED'?'#def3ef':'#f6f8fb',color:g.status==='COMPLETED'?'#11756f':'#556578'}}>{g.status==='COMPLETED'?'Concluída':`${g.progress}%`}</span>
-                    </div>
-                    <div style={{margin:'14px 0 8px'}}>
-                      <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',marginBottom:'4px'}}>
-                        <span style={{color:'#7c889a'}}>Poupado: <b>{money(g.currentAmount)}</b></span>
-                        <span style={{color:'#233649'}}>Alvo: <b>{money(g.targetAmount)}</b></span>
+                  <div key={g.id} className="goal-card">
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'12px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                        <div style={{width:'36px',height:'36px',borderRadius:'10px',background:g.color?`${g.color}18`:'#10b98118',color:g.color||'#10b981',display:'grid',placeItems:'center'}}>
+                          <Target size={18}/>
+                        </div>
+                        <div>
+                          <h3 style={{fontSize:'15px',fontWeight:700,margin:0,color:'var(--text-main)'}}>{g.name}</h3>
+                          <span style={{fontSize:'11px',color:'var(--text-muted)'}}>{g.targetDate?`Até ${new Date(g.targetDate).toLocaleDateString('pt-BR',{timeZone:'UTC'})}`:'Meta contínua'}</span>
+                        </div>
                       </div>
-                      <div style={{width:'100%',height:'8px',background:'#f1f4f8',borderRadius:'4px',overflow:'hidden'}}>
-                        <div style={{width:`${Math.min(100,g.progress)}%`,height:'100%',background:g.color||'#10B981',transition:'width 0.4s ease'}}/>
+                      <span className="pill" style={{background:g.status==='COMPLETED'?'#def3ef':'#f1f5f9',color:g.status==='COMPLETED'?'#11756f':'var(--text-secondary)'}}>
+                        {g.status==='COMPLETED'?'Concluída':`${g.progress}%`}
+                      </span>
+                    </div>
+
+                    <div style={{margin:'10px 0'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',marginBottom:'6px'}}>
+                        <span style={{color:'var(--text-secondary)'}}>Poupado: <b style={{color:'var(--text-main)'}}>{money(g.currentAmount)}</b></span>
+                        <span style={{color:'var(--text-secondary)'}}>Alvo: <b style={{color:'var(--text-main)'}}>{money(g.targetAmount)}</b></span>
+                      </div>
+                      <div className="progress-track">
+                        <div className="progress-bar" style={{width:`${Math.min(100,g.progress)}%`,background:g.color||'#10B981'}}/>
                       </div>
                     </div>
-                    <div style={{marginTop:'12px',display:'flex',justifyContent:'flex-end'}}>
-                      <button className="secondary" style={{fontSize:'11px',padding:'5px 10px'}} onClick={()=>{setSelectedItem(g);setModal('deposit_goal');}}>+ Fazer Aporte</button>
+
+                    <div style={{marginTop:'14px',display:'flex',justifyContent:'flex-end'}}>
+                      <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>{setSelectedItem(g);setModal('deposit_goal');}}>
+                        + Fazer Aporte
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -525,21 +555,38 @@ function App(){
           {tab==='budgets'&&<section className="panel">
             <div className="panel-title">
               <h2>Planejamento Orçamentário por Categoria</h2>
-              <button className="secondary" disabled={!current} onClick={()=>setModal('budget')}>+ Novo Orçamento</button>
+              <button className="secondary" disabled={!current} onClick={()=>setModal('budget')}><Plus size={15}/> Novo Orçamento</button>
             </div>
             {!current?<Empty text="Selecione um perfil para definir orçamentos por categoria."/>:budgets.length===0?<Empty text="Nenhum orçamento cadastrado para o mês vigente."/>:(
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:'16px',marginTop:'16px'}}>
+              <div className="grid-cards">
                 {budgets.map(b=>(
-                  <div key={b.id} style={{background:'#ffffff',border:'1px solid #e1e7f0',borderRadius:'12px',padding:'16px'}}>
-                    <div style={{display:'flex',justifyContent:'space-between'}}>
-                      <b style={{fontSize:'14px'}}>{b.categoryName}</b>
-                      <span className="pill" style={{background:b.percentageUsed>100?'#fff0ee':b.percentageUsed>80?'#fff0df':'#def3ef',color:b.percentageUsed>100?'#be6a55':b.percentageUsed>80?'#df8c36':'#11756f'}}>{b.percentageUsed}%</span>
+                  <div key={b.id} className="budget-card">
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <div style={{width:'32px',height:'32px',borderRadius:'8px',background:'#eff6ff',color:'#3b82f6',display:'grid',placeItems:'center'}}>
+                          <PieChart size={16}/>
+                        </div>
+                        <b style={{fontSize:'14px',color:'var(--text-main)'}}>{b.categoryName}</b>
+                      </div>
+                      <span className="pill" style={{
+                        background:b.percentageUsed>100?'#fef2f2':b.percentageUsed>80?'#fffbeb':'#ecfdf5',
+                        color:b.percentageUsed>100?'#ef4444':b.percentageUsed>80?'#d97706':'#059669'
+                      }}>
+                        {b.percentageUsed}%
+                      </span>
                     </div>
-                    <div style={{margin:'12px 0 6px',fontSize:'12px',color:'#7c889a'}}>
-                      Gasto: <b style={{color:b.percentageUsed>100?'#be6a55':'#233649'}}>{money(b.spentAmount)}</b> de {money(b.plannedAmount)}
-                    </div>
-                    <div style={{width:'100%',height:'6px',background:'#f1f4f8',borderRadius:'3px',overflow:'hidden'}}>
-                      <div style={{width:`${Math.min(100,b.percentageUsed)}%`,height:'100%',background:b.percentageUsed>100?'#be6a55':b.percentageUsed>80?'#df8c36':'#10B981'}}/>
+
+                    <div style={{margin:'8px 0'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',marginBottom:'6px'}}>
+                        <span style={{color:'var(--text-secondary)'}}>Gasto: <b style={{color:b.percentageUsed>100?'#ef4444':'var(--text-main)'}}>{money(b.spentAmount)}</b></span>
+                        <span style={{color:'var(--text-muted)'}}>Teto: <b>{money(b.plannedAmount)}</b></span>
+                      </div>
+                      <div className="progress-track">
+                        <div className="progress-bar" style={{
+                          width:`${Math.min(100,b.percentageUsed)}%`,
+                          background:b.percentageUsed>100?'#ef4444':b.percentageUsed>80?'#f59e0b':'#10b981'
+                        }}/>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -634,35 +681,50 @@ function App(){
 
           {tab==='cards'&&<section className="panel">
             <div className="panel-title">
-              <h2>Cartões de crédito e faturas</h2>
+              <h2>Cartões de Crédito e Faturas</h2>
               <div style={{display:'flex',gap:'8px'}}>
-                <button className="secondary" disabled={!current||!cards.length} onClick={()=>setModal('purchase')}>+ Comprar no Cartão</button>
-                <button className="secondary" disabled={!current} onClick={()=>setModal('card')}>+ Novo cartão</button>
+                <button className="secondary" disabled={!current||!cards.length} onClick={()=>setModal('purchase')}><CreditCard size={15}/> Nova Compra</button>
+                <button className="secondary" disabled={!current} onClick={()=>setModal('card')}><Plus size={15}/> Novo Cartão</button>
               </div>
             </div>
             {!current?<Empty text="Selecione um perfil para consultar os cartões."/>:cards.length===0?<Empty text="Nenhum cartão cadastrado."/>:(
-              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:'16px',marginTop:'16px'}}>
-                {cards.map(c=>(
-                  <div key={c.id} style={{background:'#ffffff',border:'1px solid #e1e7f0',borderRadius:'12px',padding:'16px'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                      <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>{c.name}</h3>
-                      <span className="pill" style={{fontSize:'10px'}}>Fecha dia {c.closingDay} · Vence dia {c.dueDay}</span>
-                    </div>
-                    <div style={{marginTop:'8px',width:'100%'}}>
-                      <div style={{fontSize:'11px',color:'#7c889a'}}>Limite Total: <b>{money(c.limit)}</b></div>
-                      <div style={{fontSize:'12px',color:'#13a294',fontWeight:700,marginTop:'3px'}}>Limite Disponível: {money(c.availableLimit)}</div>
+              <div className="grid-cards">
+                {cards.map(c=>{
+                  const used = Math.max(0, Number(c.limit) - Number(c.availableLimit));
+                  const pct = Math.min(100, Math.round((used / Number(c.limit)) * 100));
+                  return (
+                    <div key={c.id} className="credit-card-ui" style={{borderTop:`4px solid ${c.color||'#0d9488'}`}}>
+                      <div>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'12px'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                            <div className="card-chip"/>
+                            <span style={{fontSize:'12px',letterSpacing:'0.1em',color:'#94a3b8',textTransform:'uppercase',fontWeight:700}}>Digital Card</span>
+                          </div>
+                          <span className="pill" style={{background:'rgba(255,255,255,0.12)',color:'#ffffff',fontSize:'10px',border:'1px solid rgba(255,255,255,0.15)'}}>
+                            Fecha {c.closingDay} · Vence {c.dueDay}
+                          </span>
+                        </div>
+                        <h3 style={{fontSize:'17px',fontWeight:800,letterSpacing:'-0.02em',margin:'0 0 6px'}}>{c.name}</h3>
+                        <div style={{fontSize:'12px',color:'#cbd5e1'}}>Disponível: <b style={{color:'#2dd4bf',fontSize:'14px'}}>{money(c.availableLimit)}</b> de {money(c.limit)}</div>
+                        <div className="progress-track" style={{background:'rgba(255,255,255,0.1)',marginTop:'8px',height:'6px'}}>
+                          <div className="progress-bar" style={{width:`${pct}%`,background:pct>85?'#ef4444':pct>60?'#f59e0b':'#2dd4bf'}}/>
+                        </div>
+                      </div>
+
                       {c.currentInvoice&&(
-                        <div style={{marginTop:'12px',padding:'10px',background:'#f6f8fb',borderRadius:'8px'}}>
-                          <div style={{fontSize:'11px',color:'#556578'}}>Fatura Atual ({c.currentInvoice.referenceMonth})</div>
-                          <div style={{fontSize:'15px',fontWeight:800,color:'#be6a55'}}>{money(c.currentInvoice.totalAmount)}</div>
+                        <div style={{marginTop:'16px',padding:'12px 14px',background:'rgba(0,0,0,0.25)',borderRadius:'10px',border:'1px solid rgba(255,255,255,0.08)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <div>
+                            <div style={{fontSize:'10px',textTransform:'uppercase',letterSpacing:'0.06em',color:'#94a3b8'}}>Fatura Atual ({c.currentInvoice.referenceMonth})</div>
+                            <div style={{fontSize:'16px',fontWeight:800,color:'#f87171'}}>{money(c.currentInvoice.totalAmount)}</div>
+                          </div>
                           {Number(c.currentInvoice.totalAmount)>0&&(
-                            <button className="secondary" style={{marginTop:'6px',fontSize:'11px',padding:'5px 10px'}} onClick={()=>setModal('pay_invoice')}>Pagar fatura</button>
+                            <button className="primary" style={{fontSize:'11px',padding:'6px 12px',background:'#0d9488',borderColor:'#0d9488'}} onClick={()=>setModal('pay_invoice')}>Pagar Fatura</button>
                           )}
                         </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>}

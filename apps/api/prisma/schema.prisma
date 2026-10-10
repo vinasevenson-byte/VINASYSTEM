@@ -92,6 +92,8 @@ model Entry {
   amount      Decimal     @db.Decimal(18, 2)
   description String
   occurredAt  DateTime
+  reconciled  Boolean     @default(false)
+  reconciledAt DateTime?
   createdAt   DateTime    @default(now())
   profile     Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
   account Account @relation(fields:[accountId,profileId], references:[id,profileId])

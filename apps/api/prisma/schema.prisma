@@ -35,6 +35,7 @@ model User {
   createdAt    DateTime     @default(now())
   memberships  Membership[]
   auditLogs    AuditLog[]
+  consolidationGroups ConsolidationGroup[]
 }
 
 model Profile {
@@ -113,4 +114,15 @@ model AuditLog {
 
   @@index([userId, createdAt])
   @@index([entity, entityId])
+}
+
+model ConsolidationGroup {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  name       String
+  profileIds String[]
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

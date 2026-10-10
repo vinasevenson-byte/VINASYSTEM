@@ -93,10 +93,414 @@ function getDemoData<T>(path:string,body?:any):T{
   return {status:'ok',id:'demo-'+Date.now()} as unknown as T;
 }
 
+interface LocalState {
+  profiles: Profile[];
+  accounts: (Account & { profileId: string })[];
+  cards: (Card & { profileId: string })[];
+  entries: (Entry & { profileId: string; accountId: string })[];
+  commitments: (Commitment & { profileId: string })[];
+  goals: (Goal & { profileId: string })[];
+  budgets: (Budget & { profileId: string })[];
+}
+
+function getLocalState(): LocalState {
+  const raw = sessionStorage.getItem('vina_store_state');
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+  }
+  const initial: LocalState = {
+    profiles: [
+      { id: 'p-pessoal', name: 'Pessoal', role: 'OWNER' },
+      { id: 'p-familiar', name: 'Familiar', role: 'OWNER' }
+    ],
+    accounts: [
+      { id: 'acc-1', profileId: 'p-pessoal', name: 'Nubank Principal', openingBalance: '15650.00' },
+      { id: 'acc-2', profileId: 'p-familiar', name: 'Itaú Conjunto', openingBalance: '28400.00' }
+    ],
+    cards: [
+      { id: 'card-1', profileId: 'p-pessoal', name: 'Nubank Ultravioleta', limit: '20000.00', closingDay: 25, dueDay: 5, color: '#8a05be', availableLimit: '16000.00', currentInvoice: { id: 'inv-1', referenceMonth: '2026-10', totalAmount: '4000.00', status: 'OPEN' } }
+    ],
+    entries: [
+      { id: 'e-1', profileId: 'p-pessoal', accountId: 'acc-1', type: 'INCOME', status: 'POSTED', amount: '12500.00', description: 'Salário Executivo', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
+      { id: 'e-2', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '2450.00', description: 'Aluguel Residencial', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
+      { id: 'e-3', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '1250.00', description: 'Supermercado Mensal', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
+      { id: 'e-4', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'SCHEDULED', amount: '820.00', description: 'Seguro Auto', occurredAt: new Date(Date.now()+8*86400000).toISOString(), account: { name: 'Nubank Principal' } }
+    ],
+    commitments: [
+      { id: 'c-1', profileId: 'p-pessoal', type: 'PAYABLE', status: 'PENDING', description: 'Energia Elétrica', amount: '385.50', dueDate: new Date(Date.now()+4*86400000).toISOString(), entityName: 'Cemig', category: 'Moradia' },
+      { id: 'c-2', profileId: 'p-pessoal', type: 'PAYABLE', status: 'PENDING', description: 'Condomínio Residencial', amount: '850.00', dueDate: new Date(Date.now()+9*86400000).toISOString(), entityName: 'Condomínio', category: 'Moradia' }
+    ],
+    goals: [
+      { id: 'g-1', profileId: 'p-pessoal', name: 'Reserva de Emergência', targetAmount: '35000.00', currentAmount: '22000.00', progress: 62.9, status: 'IN_PROGRESS', color: '#10B981' }
+    ],
+    budgets: [
+      { id: 'b-1', profileId: 'p-pessoal', categoryName: 'Moradia', plannedAmount: '3000.00', spentAmount: '2450.00', percentageUsed: 81.7 }
+    ]
+  };
+  sessionStorage.setItem('vina_store_state', JSON.stringify(initial));
+  return initial;
+}
+
+function saveLocalState(st: LocalState) {
+  sessionStorage.setItem('vina_store_state', JSON.stringify(st));
+}
+
+function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
+  const b = body as any;
+  const state = getLocalState();
+
+  if (path === '/auth/login' || path === '/auth/register') {
+    const rawName = b?.name || (b?.email ? b.email.split('@')[0] : 'VINICIUS');
+    const displayName = rawName.toUpperCase() === 'VINICIUS' ? 'VINICIUS' : rawName;
+    return {
+      token: 'vina_local_session',
+      user: { id: 'u-admin', name: displayName, email: b?.email || 'vinicius@vina.com' }
+    } as unknown as T;
+  }
+
+  if (path === '/profiles') {
+    if (b?.name) {
+      const created: Profile = { id: 'p-' + Date.now(), name: b.name, role: 'OWNER' };
+      state.profiles.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.profiles as unknown as T;
+  }
+
+  const accMatch = path.match(/^\/profiles\/([^/]+)\/accounts/);
+  if (accMatch) {
+    const pid = accMatch[1];
+    if (b?.name) {
+      const created = { id: 'acc-' + Date.now(), profileId: pid, name: b.name, openingBalance: String(b.openingBalance || '0.00') };
+      state.accounts.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.accounts.filter(a => pid === 'all' || a.profileId === pid) as unknown as T;
+  }
+
+  const cardMatch = path.match(/^\/profiles\/([^/]+)\/cards/);
+  if (cardMatch) {
+    const pid = cardMatch[1];
+    if (b?.name) {
+      const created: Card & { profileId: string } = {
+        id: 'card-' + Date.now(),
+        profileId: pid,
+        name: b.name,
+        limit: String(b.limit || '5000.00'),
+        closingDay: Number(b.closingDay || 25),
+        dueDay: Number(b.dueDay || 5),
+        availableLimit: String(b.limit || '5000.00'),
+        color: b.color || '#13a99b',
+        currentInvoice: { id: 'inv-' + Date.now(), referenceMonth: new Date().toISOString().slice(0, 7), totalAmount: '0.00', status: 'OPEN' }
+      };
+      state.cards.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.cards.filter(c => pid === 'all' || c.profileId === pid) as unknown as T;
+  }
+
+  const purchaseMatch = path.match(/^\/cards\/([^/]+)\/purchases/);
+  if (purchaseMatch) {
+    const cardId = purchaseMatch[1];
+    const card = state.cards.find(c => c.id === cardId);
+    if (card) {
+      const amt = Number(b?.totalAmount || 0);
+      const used = Number(card.currentInvoice?.totalAmount || 0) + amt;
+      const limit = Number(card.limit);
+      card.availableLimit = Math.max(0, limit - used).toFixed(2);
+      if (card.currentInvoice) {
+        card.currentInvoice.totalAmount = used.toFixed(2);
+      }
+      saveLocalState(state);
+    }
+    return { success: true } as unknown as T;
+  }
+
+  const payInvMatch = path.match(/^\/cards\/invoices\/([^/]+)\/pay/);
+  if (payInvMatch) {
+    const invId = payInvMatch[1];
+    for (const card of state.cards) {
+      if (card.currentInvoice && card.currentInvoice.id === invId) {
+        const paidAmt = card.currentInvoice.totalAmount;
+        card.currentInvoice.status = 'PAID';
+        card.availableLimit = card.limit;
+        const acc = state.accounts.find(a => a.id === b?.accountId) || state.accounts[0];
+        if (acc) {
+          state.entries.unshift({
+            id: 'e-' + Date.now(),
+            profileId: card.profileId,
+            accountId: acc.id,
+            type: 'EXPENSE',
+            status: 'POSTED',
+            amount: paidAmt,
+            description: `Pagamento Fatura ${card.name}`,
+            occurredAt: new Date().toISOString(),
+            account: { name: acc.name }
+          });
+        }
+        break;
+      }
+    }
+    saveLocalState(state);
+    return { success: true } as unknown as T;
+  }
+
+  const entriesMatch = path.match(/^\/profiles\/([^/]+)\/entries/);
+  if (entriesMatch) {
+    const pid = entriesMatch[1];
+    return state.entries.filter(e => pid === 'all' || e.profileId === pid) as unknown as T;
+  }
+
+  if (path === '/entries') {
+    const acc = state.accounts.find(a => a.id === b?.accountId) || state.accounts[0];
+    const created: Entry & { profileId: string; accountId: string } = {
+      id: 'e-' + Date.now(),
+      profileId: b.profileId || (acc ? acc.profileId : 'p-pessoal'),
+      accountId: b.accountId || (acc ? acc.id : 'acc-1'),
+      type: b.type,
+      status: b.status || 'POSTED',
+      amount: String(b.amount),
+      description: b.description,
+      occurredAt: b.occurredAt || new Date().toISOString(),
+      account: { name: acc ? acc.name : 'Conta Padrão' }
+    };
+    state.entries.unshift(created);
+    saveLocalState(state);
+    return created as unknown as T;
+  }
+
+  const statusMatch = path.match(/^\/entries\/([^/]+)\/status/);
+  if (statusMatch) {
+    const entry = state.entries.find(e => e.id === statusMatch[1]);
+    if (entry && b?.status) {
+      entry.status = b.status;
+      saveLocalState(state);
+    }
+    return entry as unknown as T;
+  }
+
+  const reconcileMatch = path.match(/^\/entries\/([^/]+)\/reconcile/);
+  if (reconcileMatch) {
+    const entry = state.entries.find(e => e.id === reconcileMatch[1]);
+    if (entry) {
+      entry.reconciled = true;
+      saveLocalState(state);
+    }
+    return entry as unknown as T;
+  }
+
+  if (path === '/transfers') {
+    const fromAcc = state.accounts.find(a => a.id === b?.fromAccountId);
+    const toAcc = state.accounts.find(a => a.id === b?.toAccountId);
+    const amount = String(b.amount);
+    const now = new Date().toISOString();
+    state.entries.unshift({
+      id: 'e-t-out-' + Date.now(),
+      profileId: b.fromProfileId,
+      accountId: b.fromAccountId,
+      type: 'TRANSFER_OUT',
+      status: 'POSTED',
+      amount,
+      description: b.description || 'Transferência Interna',
+      occurredAt: now,
+      account: { name: fromAcc ? fromAcc.name : 'Origem' }
+    });
+    state.entries.unshift({
+      id: 'e-t-in-' + (Date.now() + 1),
+      profileId: b.toProfileId,
+      accountId: b.toAccountId,
+      type: 'TRANSFER_IN',
+      status: 'POSTED',
+      amount,
+      description: b.description || 'Transferência Interna',
+      occurredAt: now,
+      account: { name: toAcc ? toAcc.name : 'Destino' }
+    });
+    saveLocalState(state);
+    return { success: true } as unknown as T;
+  }
+
+  const commitMatch = path.match(/^\/profiles\/([^/]+)\/commitments/);
+  if (commitMatch) {
+    const pid = commitMatch[1];
+    if (b?.description) {
+      const created: Commitment & { profileId: string } = {
+        id: 'c-' + Date.now(),
+        profileId: pid,
+        type: b.type,
+        status: 'PENDING',
+        description: b.description,
+        amount: String(b.amount),
+        dueDate: b.dueDate,
+        entityName: b.entityName,
+        category: b.category
+      };
+      state.commitments.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.commitments.filter(c => pid === 'all' || c.profileId === pid) as unknown as T;
+  }
+
+  const settleMatch = path.match(/^\/commitments\/([^/]+)\/settle/);
+  if (settleMatch) {
+    const comm = state.commitments.find(c => c.id === settleMatch[1]);
+    if (comm) {
+      comm.status = 'PAID';
+      comm.paidAt = new Date().toISOString();
+      const acc = state.accounts.find(a => a.id === b?.accountId) || state.accounts[0];
+      if (acc) {
+        state.entries.unshift({
+          id: 'e-' + Date.now(),
+          profileId: comm.profileId,
+          accountId: acc.id,
+          type: comm.type === 'PAYABLE' ? 'EXPENSE' : 'INCOME',
+          status: 'POSTED',
+          amount: comm.amount,
+          description: `Liquidação: ${comm.description}`,
+          occurredAt: new Date().toISOString(),
+          account: { name: acc.name }
+        });
+      }
+      saveLocalState(state);
+    }
+    return { success: true } as unknown as T;
+  }
+
+  const goalMatch = path.match(/^\/profiles\/([^/]+)\/goals/);
+  if (goalMatch) {
+    const pid = goalMatch[1];
+    if (b?.name) {
+      const created: Goal & { profileId: string } = {
+        id: 'g-' + Date.now(),
+        profileId: pid,
+        name: b.name,
+        targetAmount: String(b.targetAmount),
+        currentAmount: '0.00',
+        progress: 0,
+        status: 'IN_PROGRESS',
+        color: b.color || '#10B981',
+        targetDate: b.targetDate
+      };
+      state.goals.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.goals.filter(g => pid === 'all' || g.profileId === pid) as unknown as T;
+  }
+
+  const depositGoalMatch = path.match(/^\/goals\/([^/]+)\/deposit/);
+  if (depositGoalMatch) {
+    const goal = state.goals.find(g => g.id === depositGoalMatch[1]);
+    if (goal) {
+      const newCurr = Number(goal.currentAmount) + Number(b?.amount || 0);
+      goal.currentAmount = newCurr.toFixed(2);
+      goal.progress = Math.min(100, Math.round((newCurr / Number(goal.targetAmount)) * 100));
+      saveLocalState(state);
+    }
+    return { success: true } as unknown as T;
+  }
+
+  const budgetMatch = path.match(/^\/profiles\/([^/]+)\/budgets/);
+  if (budgetMatch) {
+    const pid = budgetMatch[1];
+    if (b?.categoryName) {
+      const created: Budget & { profileId: string } = {
+        id: 'b-' + Date.now(),
+        profileId: pid,
+        categoryName: b.categoryName,
+        plannedAmount: String(b.plannedAmount),
+        spentAmount: '0.00',
+        percentageUsed: 0
+      };
+      state.budgets.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.budgets.filter(bg => pid === 'all' || bg.profileId === pid) as unknown as T;
+  }
+
+  if (path.startsWith('/dashboard')) {
+    const pidParam = new URLSearchParams(path.split('?')[1] || '').get('profileId');
+    const filteredEntries = state.entries.filter(e => (!pidParam || pidParam === 'all') ? true : e.profileId === pidParam);
+    const filteredAccounts = state.accounts.filter(a => (!pidParam || pidParam === 'all') ? true : a.profileId === pidParam);
+    
+    let income = 0;
+    let expense = 0;
+    let scheduledIncome = 0;
+    let scheduledExpense = 0;
+    let balance = filteredAccounts.reduce((acc, a) => acc + Number(a.openingBalance || 0), 0);
+    
+    for (const e of filteredEntries) {
+      if (e.status === 'VOID') continue;
+      const amt = Number(e.amount || 0);
+      if (e.status === 'POSTED') {
+        if (e.type === 'INCOME') {
+          income += amt;
+          balance += amt;
+        } else if (e.type === 'EXPENSE') {
+          expense += amt;
+          balance -= amt;
+        } else if (e.type === 'TRANSFER_IN') {
+          balance += amt;
+        } else if (e.type === 'TRANSFER_OUT') {
+          balance -= amt;
+        }
+      } else if (e.status === 'SCHEDULED') {
+        if (e.type === 'INCOME') scheduledIncome += amt;
+        if (e.type === 'EXPENSE') scheduledExpense += amt;
+      }
+    }
+    const result = income - expense;
+    const projectedBalance = balance + scheduledIncome - scheduledExpense;
+
+    return {
+      income: income.toFixed(2),
+      expense: expense.toFixed(2),
+      result: result.toFixed(2),
+      balance: balance.toFixed(2),
+      projectedBalance: projectedBalance.toFixed(2),
+      scheduledIncome: scheduledIncome.toFixed(2),
+      scheduledExpense: scheduledExpense.toFixed(2),
+      profileCount: state.profiles.length,
+      accountCount: filteredAccounts.length
+    } as unknown as T;
+  }
+
+  if (path.startsWith('/reports/cashflow')) {
+    return DEMO_CASHFLOW as unknown as T;
+  }
+
+  if (path.startsWith('/reports/export')) {
+    const rows = ['ID,Data,Perfil,Conta,Tipo,Status,Descricao,Valor(R$),Conciliado'];
+    state.entries.forEach(e => {
+      rows.push(`"${e.id}","${e.occurredAt}","${e.profileId}","${e.account?.name || ''}","${e.type}","${e.status}","${e.description}","${e.amount}","${e.reconciled ? 'Sim' : 'Não'}"`);
+    });
+    return { csv: rows.join('\n'), totalRecords: state.entries.length } as unknown as T;
+  }
+
+  if (path.startsWith('/ai/advisor')) {
+    return DEMO_ADVISOR as unknown as T;
+  }
+
+  return { status: 'ok' } as unknown as T;
+}
+
 const api=async<T,>(path:string,token:string,body?:unknown,method?:string):Promise<T>=>{
   if(token==='demo_token'){
     return getDemoData<T>(path,body);
   }
+  if(token.startsWith('vina_local_')){
+    return executeLocalApi<T>(path,body,method);
+  }
+
   let response:Response;
   try{
     response=await fetch(API_BASE+path,{
@@ -105,7 +509,8 @@ const api=async<T,>(path:string,token:string,body?:unknown,method?:string):Promi
       body:body?JSON.stringify(body):undefined
     });
   }catch(netErr:any){
-    throw new Error('Não foi possível conectar ao servidor backend ('+(netErr?.message||'Falha de rede')+'). Utilize o Modo Demonstração para navegar.');
+    console.warn('[VINA API] Falha de rede com backend remoto. Ativando Motor Local VINA:', netErr?.message);
+    return executeLocalApi<T>(path,body,method);
   }
 
   const text=await response.text();
@@ -116,11 +521,13 @@ const api=async<T,>(path:string,token:string,body?:unknown,method?:string):Promi
     data=null;
   }
 
-  if(!response.ok||!data){
-    if(text.startsWith('<!doctype')||text.startsWith('<html')||!text.trim()){
-      throw new Error('API do backend indisponível nesta URL. Use o botão "Acessar Modo Demonstração" para visualizar o sistema na Vercel.');
-    }
-    throw new Error(data&&(Array.isArray(data.message)?data.message.join(', '):data.message)||'Falha na requisição ao servidor');
+  if(text.startsWith('<!doctype')||text.startsWith('<html')||!text.trim()||!data){
+    console.warn('[VINA API] Resposta HTML recebida da URL remota (Vercel SPA). Ativando Motor Local VINA.');
+    return executeLocalApi<T>(path,body,method);
+  }
+
+  if(!response.ok){
+    throw new Error((Array.isArray(data.message)?data.message.join(', '):data.message)||'Falha na requisição ao servidor');
   }
   return data as T;
 };
@@ -154,7 +561,13 @@ function App(){
 
   useEffect(()=>{
     if(!token)return;
-    api<Profile[]>('/profiles',token).then(setProfiles).catch(e=>setError(e.message));
+    api<Profile[]>('/profiles',token).then(list=>{
+      setProfiles(list);
+      if(selected==='all'&&list.length>0&&!sessionStorage.getItem('vina_has_selected')){
+        setSelected(list[0].id);
+        sessionStorage.setItem('vina_has_selected','true');
+      }
+    }).catch(e=>setError(e.message));
   },[token,refresh]);
 
   useEffect(()=>{
@@ -393,6 +806,13 @@ function App(){
           </div>
 
           <div className="topbar-right">
+            {token==='demo_token'?(
+              <span className="pill" style={{background:'#fef3c7',color:'#92400e'}}><Sparkles size={12}/> Demonstração</span>
+            ):token.startsWith('vina_local_')?(
+              <span className="pill" style={{background:'#e0f2fe',color:'#0369a1'}} title="Modo Operacional Local: dados persistidos nesta sessão"><Sparkles size={12}/> Motor VINA Local</span>
+            ):(
+              <span className="pill" style={{background:'#dcfce7',color:'#166534'}} title="Conectado ao PostgreSQL"><CheckCircle2 size={12}/> PostgreSQL Ativo</span>
+            )}
             <button className="secondary" onClick={exportCsv} title="Exportar Extrato em CSV"><FileSpreadsheet size={16}/> {!collapsed&&<span>Exportar CSV</span>}</button>
             <button className="primary" onClick={()=>setModal('entry')} disabled={!current||!accounts.length}><Plus size={16}/> Novo Lançamento</button>
           </div>

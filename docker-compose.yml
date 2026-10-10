@@ -1,25 +1,18 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: boma_finance_postgres
-    restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: boma_finance
+      POSTGRES_USER: boma
+      POSTGRES_PASSWORD: boma_dev_password
+      POSTGRES_DB: boma
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./packages/database/prisma/schema.prisma:/docker-entrypoint-initdb.d/init.sql:ro
+      - boma_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U boma -d boma"]
       interval: 5s
-      timeout: 5s
-      retries: 5
-
+      timeout: 3s
+      retries: 10
 volumes:
-  postgres_data:
-    driver: local
+  boma_pgdata:

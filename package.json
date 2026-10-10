@@ -1,21 +1,22 @@
 {
   "name": "boma-finance",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis",
+  "description": "BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis (v1.1)",
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/*"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace=apps/web",
-    "dev:api": "npm run dev --workspace=apps/api",
+    "test": "node --test tests/invariants.test.cjs",
+    "test:invariants": "node --test tests/invariants.test.cjs",
+    "dev:web": "npm run dev --workspace=@boma/web",
+    "dev:api": "npm run dev --workspace=@boma/api",
     "dev": "npm run dev:web",
-    "build:web": "npm run build --workspace=apps/web",
-    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=@boma/web",
+    "build:api": "npm run build --workspace=@boma/api",
     "build": "npm run build:web",
-    "db:generate": "npm run prisma:generate --workspace=@boma/database",
-    "db:migrate": "npm run prisma:migrate --workspace=@boma/database"
+    "db:generate": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
+    "db:migrate": "npx prisma migrate dev --schema=apps/api/prisma/schema.prisma"
   },
   "keywords": [
     "finance",

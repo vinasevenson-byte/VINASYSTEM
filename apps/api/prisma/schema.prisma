@@ -1,0 +1,68 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum Role { OWNER MANAGER EDITOR VIEWER }
+enum EntryType { INCOME EXPENSE TRANSFER_IN TRANSFER_OUT }
+enum EntryStatus { SCHEDULED POSTED VOID }
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  email String @unique
+  passwordHash String
+  createdAt DateTime @default(now())
+  memberships Membership[]
+}
+model Profile {
+  id String @id @default(uuid()) @db.Uuid
+  name String
+  createdAt DateTime @default(now())
+  memberships Membership[]
+  accounts Account[]
+  entries Entry[]
+  categories Category[]
+}
+model Membership {
+  userId String @db.Uuid
+  profileId String @db.Uuid
+  role Role
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  profile Profile @relation(fields:[profileId],references:[id],onDelete:Cascade)
+  @@id([userId,profileId])
+}
+model Account {
+  id String @id @default(uuid()) @db.Uuid
+  profileId String @db.Uuid
+  name String
+  openingBalance Decimal @db.Decimal(18,2) @default(0)
+  createdAt DateTime @default(now())
+  profile Profile @relation(fields:[profileId],references:[id],onDelete:Cascade)
+  entries Entry[]
+  @@unique([id,profileId])
+}
+model Category {
+  id String @id @default(uuid()) @db.Uuid
+  profileId String @db.Uuid
+  name String
+  type EntryType
+  profile Profile @relation(fields:[profileId],references:[id],onDelete:Cascade)
+  entries Entry[]
+  @@unique([id,profileId])
+}
+model Entry {
+  id String @id @default(uuid()) @db.Uuid
+  profileId String @db.Uuid
+  accountId String @db.Uuid
+  categoryId String? @db.Uuid
+  transferId String? @db.Uuid
+  type EntryType
+  status EntryStatus @default(POSTED)
+  amount Decimal @db.Decimal(18,2)
+  description String
+  occurredAt DateTime
+  createdAt DateTime @default(now())
+  profile Profile @relation(fields:[profileId],references:[id],onDelete:Cascade)
+  account Account @relation(fields:[accountId,profileId],references:[id,profileId])
+  category Category? @relation(fields:[categoryId,profileId],references:[id,profileId])
+  @@index([profileId,occurredAt])
+  @@index([transferId])
+}

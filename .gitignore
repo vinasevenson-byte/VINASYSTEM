@@ -66,6 +66,7 @@ dist/
 dist-ssr/
 build/
 *.local
+.vercel
 
 # Editor directories and files
 .vscode/*

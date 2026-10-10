@@ -4,7 +4,7 @@ import{LayoutDashboard,Users,Wallet,ReceiptText,Landmark,ArrowLeftRight,LogOut,P
 import './style.css';
 
 type Profile={id:string,name:string,role:string};
-type Account={id:string,name:string,openingBalance:string};
+type Account={id:string,name:string,openingBalance:string,profileId?:string};
 type Entry={id:string,type:string,status:string,amount:string,description:string,occurredAt:string,reconciled?:boolean,accountId?:string,category?:string,paymentMethod?:string,account:{name:string}};
 type Card={id:string,name:string,limit:string,closingDay:number,dueDay:number,color?:string,availableLimit:string,currentInvoice?:{id:string,referenceMonth:string,totalAmount:string,status:string}};
 type Commitment={id:string,type:'PAYABLE'|'RECEIVABLE',status:'PENDING'|'PAID',description:string,amount:string,dueDate:string,entityName?:string,category?:string,paidAt?:string};
@@ -636,7 +636,7 @@ function App(){
   const [theme,setTheme]=useState<'light'|'dark'>(()=>(sessionStorage.getItem('vina_theme') as 'light'|'dark')||'light');
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [selected,setSelected]=useState('all');
-  const [tab,setTab]=useState('dashboard');
+  const [tab,setTab]=useState('cash');
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [cards,setCards]=useState<Card[]>([]);
   const [entries,setEntries]=useState<Entry[]>([]);
@@ -664,6 +664,8 @@ function App(){
   const [destinationAccounts,setDestinationAccounts]=useState<Account[]>([]);
   const [transferDestination,setTransferDestination]=useState('');
   const [notice,setNotice]=useState('');
+  const [entryKind,setEntryKind]=useState<'INCOME'|'EXPENSE'>('EXPENSE');
+  const [daysRange,setDaysRange]=useState<7|14>(14);
 
   useEffect(()=>{
     document.documentElement.setAttribute('data-theme',theme);
@@ -686,6 +688,63 @@ function App(){
   const current=profiles.find(p=>p.id===selected);
   const load=()=>setRefresh(v=>v+1);
 
+  const accountBalance=(account:Account)=>{
+    let total=Number(account.openingBalance||0);
+    for(const e of entries){
+      if(e.accountId!==account.id||e.status!=='POSTED')continue;
+      total+=(e.type==='INCOME'||e.type==='TRANSFER_IN'?1:-1)*Number(e.amount);
+    }
+    return total;
+  };
+
+  const isMarketBenefit = (acc: Account) => /vale[- ]?mercado|refei[çc][ãa]o|alimenta[çc][ãa]o|alelo|sodexo|vr/i.test(acc.name);
+  const isFuelBenefit = (acc: Account) => /vale[- ]?combust[íi]vel|combust[íi]vel|mobilidade|ticket log/i.test(acc.name);
+  const isBenefit = (acc: Account) => isMarketBenefit(acc) || isFuelBenefit(acc);
+  const isBankOrCash = (acc: Account) => !isBenefit(acc);
+
+  const bankAccounts = accounts.filter(isBankOrCash);
+  const marketAccounts = accounts.filter(isMarketBenefit);
+  const fuelAccounts = accounts.filter(isFuelBenefit);
+
+  const bankBalance = bankAccounts.reduce((sum, a) => sum + accountBalance(a), 0);
+  const marketBalance = marketAccounts.reduce((sum, a) => sum + accountBalance(a), 0);
+  const fuelBalance = fuelAccounts.reduce((sum, a) => sum + accountBalance(a), 0);
+  const totalAvailableResources = bankBalance + marketBalance + fuelBalance;
+
+  const totalOpeningBalance = accounts.reduce((sum, a) => sum + Number(a.openingBalance || 0), 0);
+  const totalRealizedIncome = entries.filter(e => e.status === 'POSTED' && (e.type === 'INCOME' || e.type === 'TRANSFER_IN')).reduce((sum, e) => sum + Number(e.amount), 0);
+  const totalRealizedExpense = entries.filter(e => e.status === 'POSTED' && (e.type === 'EXPENSE' || e.type === 'TRANSFER_OUT')).reduce((sum, e) => sum + Number(e.amount), 0);
+
+  const dailyExpenses = Array.from({ length: daysRange }).map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (daysRange - 1 - i));
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    const dayMonth = `${dayStr}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const dateIso = d.toISOString().slice(0, 10);
+    const daySpent = entries
+      .filter(e => e.status === 'POSTED' && e.type === 'EXPENSE' && (e.occurredAt || '').slice(0, 10) === dateIso)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
+    return {
+      day: dayStr,
+      dayMonth,
+      date: dateIso,
+      amount: daySpent
+    };
+  });
+
+  const sortedBySpend = [...dailyExpenses].filter(d => d.amount > 0).sort((a, b) => b.amount - a.amount);
+  const maxSpendDay = sortedBySpend[0] || (dailyExpenses[0] ? { ...dailyExpenses[0], amount: 0 } : { amount: 0, dayMonth: '--' });
+  const minSpendDay = [...sortedBySpend].reverse()[0] || (dailyExpenses[0] ? { ...dailyExpenses[0], amount: 0 } : { amount: 0, dayMonth: '--' });
+  const maxDailyValue = Math.max(1, ...dailyExpenses.map(d => d.amount));
+  const totalDailySpent = dailyExpenses.reduce((s, d) => s + d.amount, 0);
+  const avgDailySpent = (totalDailySpent / daysRange) || 0;
+
+  const pendingReceivables = commitments.filter(c => c.type === 'RECEIVABLE' && c.status === 'PENDING').reduce((s, c) => s + Number(c.amount), 0)
+    + entries.filter(e => e.status === 'SCHEDULED' && e.type === 'INCOME').reduce((s, e) => s + Number(e.amount), 0);
+  const pendingPayables = commitments.filter(c => c.type === 'PAYABLE' && c.status === 'PENDING').reduce((s, c) => s + Number(c.amount), 0)
+    + entries.filter(e => e.status === 'SCHEDULED' && e.type === 'EXPENSE').reduce((s, e) => s + Number(e.amount), 0);
+  const projectedBank = bankBalance + pendingReceivables - pendingPayables;
+
   useEffect(()=>{
     if(!token)return;
     api<Profile[]>('/profiles',token).then(list=>{
@@ -704,13 +763,23 @@ function App(){
     api<Category[]>('/categories',token).then(setCategories).catch(()=>{});
 
     if(selected==='all'){
-      setAccounts([]);
-      setCards([]);
-      setEntries([]);
-      setCommitments([]);
-      setGoals([]);
-      setBudgets([]);
-      setInvestments(DEFAULT_INVESTMENTS);
+      if(profiles.length>0){
+        Promise.all(profiles.map(p=>api<Account[]>(`/profiles/${p.id}/accounts`,token).catch(()=>[]))).then(lists=>setAccounts(lists.flat())).catch(()=>{});
+        Promise.all(profiles.map(p=>api<Entry[]>(`/profiles/${p.id}/entries`,token).catch(()=>[]))).then(lists=>setEntries(lists.flat())).catch(()=>{});
+        Promise.all(profiles.map(p=>api<Card[]>(`/profiles/${p.id}/cards`,token).catch(()=>[]))).then(lists=>setCards(lists.flat())).catch(()=>{});
+        Promise.all(profiles.map(p=>api<Commitment[]>(`/profiles/${p.id}/commitments`,token).catch(()=>[]))).then(lists=>setCommitments(lists.flat())).catch(()=>{});
+        Promise.all(profiles.map(p=>api<Goal[]>(`/profiles/${p.id}/goals`,token).catch(()=>[]))).then(lists=>setGoals(lists.flat())).catch(()=>{});
+        Promise.all(profiles.map(p=>api<Budget[]>(`/profiles/${p.id}/budgets`,token).catch(()=>[]))).then(lists=>setBudgets(lists.flat())).catch(()=>{});
+        setInvestments(DEFAULT_INVESTMENTS);
+      }else{
+        setAccounts([]);
+        setCards([]);
+        setEntries([]);
+        setCommitments([]);
+        setGoals([]);
+        setBudgets([]);
+        setInvestments(DEFAULT_INVESTMENTS);
+      }
     }else{
       api<Account[]>(`/profiles/${selected}/accounts`,token).then(setAccounts).catch(e=>setError(e.message));
       api<Card[]>(`/profiles/${selected}/cards`,token).then(setCards).catch(e=>setError(e.message));
@@ -751,20 +820,43 @@ function App(){
 
   const handleNewEntry=()=>{
     setError('');
+    setNotice('');
     if(!profiles||profiles.length===0){
-      setError('Cadastre seu primeiro perfil financeiro antes de realizar um lançamento.');
+      setNotice('Cadastre seu primeiro perfil financeiro antes de realizar um lançamento.');
       setModal('profile');
       return;
     }
-    if(selected==='all'){
-      setError('A Visão Consolidada reúne múltiplos perfis. Selecione um perfil financeiro individual no seletor "Perfil Ativo" (no topo da tela) para vincular este lançamento.');
-      return;
+    if(selected==='all'&&profiles.length>0){
+      setSelected(profiles[0].id);
     }
     if(!accounts||accounts.length===0){
-      setError(`O perfil "${current?.name||'selecionado'}" ainda não possui contas bancárias cadastradas. Cadastre a primeira conta para este perfil.`);
+      setNotice('Antes do lançamento, cadastre uma conta bancária ou benefício com seu saldo atual.');
       setModal('account');
       return;
     }
+    setEntryKind('EXPENSE');
+    setSelectedItem(null);
+    setModal('entry');
+  };
+
+  const openCashEntry=(kind:'INCOME'|'EXPENSE')=>{
+    setError('');
+    setNotice('');
+    if(!profiles||profiles.length===0){
+      setNotice('Cadastre seu primeiro perfil antes de movimentar o caixa.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'&&profiles.length>0){
+      setSelected(profiles[0].id);
+    }
+    if(!accounts||accounts.length===0){
+      setNotice('Antes do lançamento, cadastre sua conta bancária ou benefício com seu saldo inicial.');
+      setModal('account');
+      return;
+    }
+    setEntryKind(kind);
+    setSelectedItem(null);
     setModal('entry');
   };
 
@@ -803,14 +895,14 @@ function App(){
 
   const handleNewAccount=()=>{
     setError('');
+    setNotice('');
     if(!profiles||profiles.length===0){
-      setError('Cadastre seu primeiro perfil antes de cadastrar contas bancárias.');
+      setNotice('Cadastre seu primeiro perfil antes de cadastrar contas bancárias e benefícios.');
       setModal('profile');
       return;
     }
-    if(selected==='all'){
-      setError('Selecione um perfil individual no topo da página para adicionar uma conta bancária.');
-      return;
+    if(selected==='all'&&profiles.length>0){
+      setSelected(profiles[0].id);
     }
     setModal('account');
   };
@@ -931,9 +1023,13 @@ function App(){
         const created=await api<{id:string}>('/profiles',token,{name:v('name')});
         if(created?.id)setSelected(created.id);
       }else if(modal==='account'){
-        await api(`/profiles/${selected}/accounts`,token,{name:v('name'),openingBalance:v('balance')});
+        const targetProfileId = (selected === 'all' || !selected) ? (profiles[0]?.id) : selected;
+        if(!targetProfileId) throw new Error('Crie um perfil antes de cadastrar uma conta.');
+        await api(`/profiles/${targetProfileId}/accounts`,token,{name:v('name'),openingBalance:v('balance')});
       }else if(modal==='card'){
-        await api(`/profiles/${selected}/cards`,token,{name:v('name'),limit:v('limit'),closingDay:Number(v('closingDay')),dueDay:Number(v('dueDay')),color:v('color')||'#13a99b'});
+        const targetProfileId = (selected === 'all' || !selected) ? (profiles[0]?.id) : selected;
+        if(!targetProfileId) throw new Error('Selecione um perfil individual para vincular o cartão.');
+        await api(`/profiles/${targetProfileId}/cards`,token,{name:v('name'),limit:v('limit'),closingDay:Number(v('closingDay')),dueDay:Number(v('dueDay')),color:v('color')||'#13a99b'});
       }else if(modal==='purchase'){
         await api(`/cards/${v('cardId')}/purchases`,token,{description:v('description'),totalAmount:v('amount'),totalInstallments:Number(v('installments')||1),purchaseDate:new Date(v('date')+'T12:00:00').toISOString()});
       }else if(modal==='pay_invoice'){
@@ -949,6 +1045,9 @@ function App(){
         if(!v('accountId')){
           throw new Error('Selecione uma conta bancária para o lançamento.');
         }
+        const targetAccount = accounts.find(a => a.id === v('accountId'));
+        const targetProfileId = targetAccount?.profileId || (selected === 'all' ? profiles[0]?.id : selected);
+        if(!targetProfileId) throw new Error('Perfil não encontrado para o lançamento.');
         const notes=v('notes')?.trim();
         const cat=v('category')?.trim();
         const method=v('paymentMethod')?.trim();
@@ -957,7 +1056,7 @@ function App(){
         if(method) desc += ` (${method})`;
         if(notes) desc += ` — ${notes}`;
         await api('/entries',token,{
-          profileId:selected,
+          profileId:targetProfileId,
           accountId:v('accountId'),
           type:v('type') as 'INCOME'|'EXPENSE',
           status:v('status')||'POSTED',
@@ -1145,14 +1244,15 @@ function App(){
       <aside className={`sidebar ${collapsed?'collapsed':''}`}>
         <div className="brand">
           <div className="brand-icon">V</div>
-          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.3 · ERP Financeiro Completo</span></div>}
+          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.4 · Caixa & Benefícios</span></div>}
         </div>
 
         <div className="sidebar-scroll">
-          {!collapsed&&<div className="nav-section-title">Menu Principal</div>}
+          {!collapsed&&<div className="nav-section-title">Operação & Caixa</div>}
+          <button className={`nav-item ${tab==='cash'?'active':''}`} onClick={()=>setTab('cash')} title="Meu Caixa Pessoal & Benefícios"><Wallet size={18}/>{!collapsed&&<span>Meu Caixa Pessoal</span>}</button>
           <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} title="Dashboard Executivo"><LayoutDashboard size={18}/>{!collapsed&&<span>Dashboard</span>}</button>
           <button className={`nav-item ${tab==='entries'?'active':''}`} onClick={()=>setTab('entries')} title="Central de Lançamentos"><ReceiptText size={18}/>{!collapsed&&<span>Lançamentos</span>}</button>
-          <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>setTab('accounts')} title="Contas Bancárias"><Landmark size={18}/>{!collapsed&&<span>Contas Bancárias</span>}</button>
+          <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>setTab('accounts')} title="Contas Bancárias & Vales"><Landmark size={18}/>{!collapsed&&<span>Contas & Vales</span>}</button>
           <button className={`nav-item ${tab==='cards'?'active':''}`} onClick={()=>setTab('cards')} title="Cartões de Crédito"><CreditCard size={18}/>{!collapsed&&<span>Cartões de Crédito</span>}</button>
           <button className={`nav-item ${tab==='commitments'?'active':''}`} onClick={()=>setTab('commitments')} title="Contas a Pagar & Receber"><Calendar size={18}/>{!collapsed&&<span>Compromissos</span>}</button>
           <button className={`nav-item ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')} title="Categorias Financeiras"><FolderTree size={18}/>{!collapsed&&<span>Categorias</span>}</button>
@@ -1217,6 +1317,330 @@ function App(){
         {cloudGreeting&&<div style={{margin:'16px 32px 0',padding:'10px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'8px',color:'#15803d',display:'flex',alignItems:'center',gap:'8px',fontSize:'13px'}}><Sparkles size={16}/><span><strong>Vercel Global Config:</strong> {cloudGreeting}</span></div>}
 
         <div className="page">
+          {tab==='cash'&&(
+            <section className="panel" style={{display:'flex',flexDirection:'column',gap:'20px'}}>
+              <div className="panel-title">
+                <div>
+                  <h2 style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                    <Wallet size={22} color="#0d9488"/> Meu Caixa Pessoal & Benefícios
+                  </h2>
+                  <span style={{fontSize:'13px',color:'var(--text-muted)'}}>
+                    Visão unificada de bancos, dinheiro e benefícios corporativos ({current ? current.name : 'Perfil Individual'})
+                  </span>
+                </div>
+                <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                  <button className="primary" onClick={()=>openCashEntry('INCOME')}>
+                    <ArrowDownRight size={16}/> Adicionar entrada
+                  </button>
+                  <button className="secondary" onClick={()=>openCashEntry('EXPENSE')}>
+                    <ArrowUpRight size={16}/> Registrar saída
+                  </button>
+                  <button className="secondary" onClick={handleNewAccount}>
+                    <Plus size={16}/> + Nova conta bancária
+                  </button>
+                  <button className="secondary" onClick={()=>{
+                    handleNewAccount();
+                    setTimeout(()=>{
+                      const sel = document.getElementById('resource-type-select') as HTMLSelectElement;
+                      const inp = document.getElementById('account-name-input') as HTMLInputElement;
+                      if(sel){ sel.value = 'BENEFIT_MARKET'; }
+                      if(inp){ inp.value = 'Vale-Mercado'; }
+                    },50);
+                  }}>
+                    <Plus size={16}/> + Cadastrar benefício
+                  </button>
+                </div>
+              </div>
+
+              {!current ? (
+                <div className="cash-onboarding">
+                  <h3>Comece pelo seu perfil pessoal</h3>
+                  <p>Selecione um perfil financeiro individual no topo da tela para administrar seu dinheiro e benefícios.</p>
+                  <button className="primary" onClick={()=>{if(profiles.length)setSelected(profiles[0].id);else setModal('profile');}}>
+                    {profiles.length?'Usar perfil '+profiles[0].name:'Criar perfil pessoal'}
+                  </button>
+                </div>
+              ) : accounts.length === 0 ? (
+                <div className="cash-onboarding">
+                  <h3>Você ainda não possui contas ou benefícios cadastrados</h3>
+                  <p>Cadastre sua conta bancária corrente (com seu saldo atual), carteira de dinheiro e seus benefícios (Vale-Mercado, Vale-Combustível).</p>
+                  <button className="primary" onClick={handleNewAccount}>
+                    + Cadastrar primeira conta e saldo
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Top 6 KPI summary of personal resources */}
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:'12px'}}>
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Salário / Entradas</span>
+                        <div className="metric-icon-badge" style={{background:'#f0fdf4',color:'#16a34a'}}>+</div>
+                      </div>
+                      <div>
+                        <div className="metric-val positive" style={{fontSize:'22px'}}>{money(totalRealizedIncome)}</div>
+                        <div className="metric-sub" style={{color:'#16a34a'}}>Entradas confirmadas</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Saídas do Caixa</span>
+                        <div className="metric-icon-badge" style={{background:'#fef2f2',color:'#dc2626'}}>−</div>
+                      </div>
+                      <div>
+                        <div className="metric-val negative" style={{fontSize:'22px'}}>{money(totalRealizedExpense)}</div>
+                        <div className="metric-sub" style={{color:'#dc2626'}}>Despesas pagas</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Saldo Bancário</span>
+                        <div className="metric-icon-badge" style={{background:'#eff6ff',color:'#2563eb'}}><Landmark size={16}/></div>
+                      </div>
+                      <div>
+                        <div className="metric-val" style={{fontSize:'22px',color:'#2563eb'}}>{money(bankBalance)}</div>
+                        <div className="metric-sub">Contas bancárias & dinheiro</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Saldo Vale-Mercado</span>
+                        <div className="metric-icon-badge" style={{background:'#fefce8',color:'#ca8a04'}}>🛒</div>
+                      </div>
+                      <div>
+                        <div className="metric-val" style={{fontSize:'22px',color:'#ca8a04'}}>{money(marketBalance)}</div>
+                        <div className="metric-sub">Alimentação & Mercado</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Saldo Vale-Combustível</span>
+                        <div className="metric-icon-badge" style={{background:'#fdf4ff',color:'#c026d3'}}>⛽</div>
+                      </div>
+                      <div>
+                        <div className="metric-val" style={{fontSize:'22px',color:'#c026d3'}}>{money(fuelBalance)}</div>
+                        <div className="metric-sub">Combustível & Mobilidade</div>
+                      </div>
+                    </div>
+
+                    <div className="metric" style={{background:'linear-gradient(135deg, #0d9488 0%, #047857 100%)',color:'#ffffff'}}>
+                      <div className="metric-header">
+                        <span className="metric-label" style={{color:'#ccfbf1'}}>Recursos Disponíveis</span>
+                        <div className="metric-icon-badge" style={{background:'rgba(255,255,255,0.2)',color:'#ffffff'}}>✨</div>
+                      </div>
+                      <div>
+                        <div className="metric-val" style={{fontSize:'24px',color:'#ffffff'}}>{money(totalAvailableResources)}</div>
+                        <div className="metric-sub" style={{color:'#ccfbf1'}}>Bancos + Vales corporativos</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2 Columns: Daily Spending Chart & Cash Forecast */}
+                  <div className="dashboard-grid-2col" style={{marginTop:'4px'}}>
+                    {/* Column 1: Daily Spending */}
+                    <div style={{background:'var(--bg-surface)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border)',padding:'20px'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                        <div>
+                          <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Gastos Diários</h3>
+                          <span style={{fontSize:'12px',color:'var(--text-muted)'}}>Despesas registradas no caixa</span>
+                        </div>
+                        <div style={{display:'flex',gap:'6px',background:'var(--bg-app)',padding:'3px',borderRadius:'8px',border:'1px solid var(--border)'}}>
+                          <button
+                            type="button"
+                            className={daysRange === 7 ? 'primary' : 'secondary'}
+                            style={{padding:'4px 10px',fontSize:'11px',borderRadius:'6px'}}
+                            onClick={()=>setDaysRange(7)}
+                          >
+                            7 dias
+                          </button>
+                          <button
+                            type="button"
+                            className={daysRange === 14 ? 'primary' : 'secondary'}
+                            style={{padding:'4px 10px',fontSize:'11px',borderRadius:'6px'}}
+                            onClick={()=>setDaysRange(14)}
+                          >
+                            14 dias
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="daily-spending-chart">
+                        {dailyExpenses.map(d => {
+                          const heightPct = Math.max(8, Math.round((d.amount / maxDailyValue) * 100));
+                          const isMax = d.amount > 0 && d.amount === maxSpendDay.amount;
+                          return (
+                            <div key={d.date} className="day-bar-group" title={`${d.dayMonth}: ${money(d.amount)}`}>
+                              <div
+                                className={`day-bar-fill ${isMax ? 'highlight' : ''}`}
+                                style={{height:`${heightPct}%`}}
+                              />
+                              <span className="day-bar-label">{d.day}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px',marginTop:'14px'}}>
+                        <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--bg-app)',border:'1px solid var(--border)'}}>
+                          <div style={{fontSize:'11px',color:'var(--text-muted)'}}>Maior Gasto:</div>
+                          <div style={{fontSize:'15px',fontWeight:800,color:'#f59e0b'}}>{money(maxSpendDay.amount)}</div>
+                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{maxSpendDay.dayMonth}</div>
+                        </div>
+                        <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--bg-app)',border:'1px solid var(--border)'}}>
+                          <div style={{fontSize:'11px',color:'var(--text-muted)'}}>Menor Gasto:</div>
+                          <div style={{fontSize:'15px',fontWeight:800,color:'#10b981'}}>{money(minSpendDay.amount)}</div>
+                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{minSpendDay.dayMonth}</div>
+                        </div>
+                        <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--bg-app)',border:'1px solid var(--border)'}}>
+                          <div style={{fontSize:'11px',color:'var(--text-muted)'}}>Média Diária:</div>
+                          <div style={{fontSize:'15px',fontWeight:800,color:'var(--text-main)'}}>{money(avgDailySpent)}</div>
+                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>por dia</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 2: Cash Forecast */}
+                    <div style={{background:'var(--bg-surface)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border)',padding:'20px',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
+                      <div>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px'}}>
+                          <TrendingUp size={18} color="#0d9488"/>
+                          <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Previsão de Caixa</h3>
+                        </div>
+                        <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+                          <div className="forecast-row">
+                            <span style={{color:'var(--text-muted)'}}>Saldo bancário atual</span>
+                            <span style={{fontWeight:700}}>{money(bankBalance)}</span>
+                          </div>
+                          <div className="forecast-row">
+                            <span style={{color:'#16a34a'}}>Recebimentos previstos</span>
+                            <span style={{fontWeight:700,color:'#16a34a'}}>+ {money(pendingReceivables)}</span>
+                          </div>
+                          <div className="forecast-row">
+                            <span style={{color:'#dc2626'}}>Despesas previstas</span>
+                            <span style={{fontWeight:700,color:'#dc2626'}}>− {money(pendingPayables)}</span>
+                          </div>
+                          <div style={{borderTop:'1px dashed var(--border)',margin:'6px 0'}}/>
+                          <div className="forecast-row" style={{fontSize:'15px'}}>
+                            <span style={{fontWeight:700}}>Saldo bancário projetado</span>
+                            <span style={{fontWeight:800,color:projectedBank>=0?'#0d9488':'#dc2626',fontSize:'18px'}}>
+                              {money(projectedBank)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{background:'#f0fdfa',border:'1px solid #99f6e4',padding:'12px',borderRadius:'10px',marginTop:'14px',fontSize:'12px',color:'#0f766e',lineHeight:1.5}}>
+                        <b>💡 Regra dos Benefícios:</b> Seus vales de alimentação e combustível são recursos acumuláveis para suas respectivas finalidades e estão protegidos do saldo de liquidação bancária.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Accounts & Benefit Balances Table */}
+                  <div style={{background:'var(--bg-surface)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border)',padding:'20px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+                      <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Saldo por Conta & Benefício</h3>
+                      <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={handleNewAccount}>
+                        + Nova Conta ou Vale
+                      </button>
+                    </div>
+                    <div className="table-wrap">
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Nome da Conta / Benefício</th>
+                            <th>Tipo de Recurso</th>
+                            <th>Saldo Inicial (Abertura)</th>
+                            <th>Saldo Atual Calculado</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {accounts.map(a => {
+                            const bal = accountBalance(a);
+                            const label = isMarketBenefit(a) ? 'Vale-Mercado (Alimentação)' : isFuelBenefit(a) ? 'Vale-Combustível (Mobilidade)' : 'Conta Bancária / Dinheiro';
+                            const badgeColor = isMarketBenefit(a) ? {bg:'#fefce8',fg:'#ca8a04'} : isFuelBenefit(a) ? {bg:'#fdf4ff',fg:'#c026d3'} : {bg:'#eff6ff',fg:'#2563eb'};
+                            return (
+                              <tr key={a.id}>
+                                <td><b>{a.name}</b></td>
+                                <td>
+                                  <span className="pill" style={{fontSize:'11px',background:badgeColor.bg,color:badgeColor.fg,fontWeight:700}}>
+                                    {label}
+                                  </span>
+                                </td>
+                                <td>{money(a.openingBalance)}</td>
+                                <td className={bal >= 0 ? 'positive' : 'negative'} style={{fontWeight:800,fontSize:'14px'}}>
+                                  {money(bal)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Recent Cash Operations */}
+                  <div style={{background:'var(--bg-surface)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border)',padding:'20px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+                      <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Movimentações Recentes do Caixa</h3>
+                      <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>setTab('entries')}>
+                        Ver Todos os Lançamentos →
+                      </button>
+                    </div>
+                    {entries.length === 0 ? (
+                      <Empty text="Nenhuma movimentação registrada no caixa."/>
+                    ) : (
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>Data</th>
+                              <th>Descrição</th>
+                              <th>Conta / Benefício</th>
+                              <th>Tipo</th>
+                              <th>Valor</th>
+                              <th>Ações</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {entries.slice(0, 10).map(e => (
+                              <tr key={e.id}>
+                                <td>{new Date(e.occurredAt).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</td>
+                                <td>{e.description}</td>
+                                <td><span className="pill" style={{fontSize:'11px'}}>{e.account?.name || 'Conta'}</span></td>
+                                <td>
+                                  <span className="pill" style={{
+                                    fontSize:'10px',
+                                    background:['INCOME','TRANSFER_IN'].includes(e.type)?'#dcfce7':'#fee2e2',
+                                    color:['INCOME','TRANSFER_IN'].includes(e.type)?'#166534':'#991b1b',
+                                    fontWeight:700
+                                  }}>
+                                    {e.type==='INCOME'?'Entrada':e.type==='EXPENSE'?'Saída':'Transferência'}
+                                  </span>
+                                </td>
+                                <td className={['INCOME','TRANSFER_IN'].includes(e.type)?'positive':'negative'} style={{fontWeight:700}}>
+                                  {['INCOME','TRANSFER_IN'].includes(e.type)?'+':'−'} {money(e.amount)}
+                                </td>
+                                <td>
+                                  <button className="icon-button" title="Editar Lançamento" onClick={()=>handleEditEntry(e)}>
+                                    <Pencil size={15} color="#0d9488"/>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
+
           {tab==='dashboard'&&dash&&<>
             {/* 1. TOP METRICS: Saldo Total, Receitas, Despesas, Resultado */}
             <div className="metrics">
@@ -1977,7 +2401,7 @@ function App(){
           <div className="panel-title">
             <h2>{({
               profile:'Novo perfil financeiro',
-              account:'Nova conta financeira',
+              account:'Nova conta ou benefício financeiro',
               card:'Novo cartão de crédito',
               purchase:'Nova compra no cartão',
               pay_invoice:'Pagar fatura de cartão',
@@ -1997,8 +2421,35 @@ function App(){
           <form onSubmit={submit}>
             {modal==='profile'&&<label>Nome do perfil<input name="name" required placeholder="Ex.: Pessoal, Família, Patrimônio"/></label>}
             {modal==='account'&&<>
-              <label>Nome da conta<input name="name" required placeholder="Ex.: Nubank, Itaú, Bradesco"/></label>
-              <label>Saldo inicial (R$)<input name="balance" required type="number" min="0" step="0.01" defaultValue="0.00"/></label>
+              <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
+                Perfil Vinculado: <b>{current?.name || (profiles[0] ? profiles[0].name : 'Individual')}</b>
+              </div>
+              <label>Tipo de Recurso Financeiro
+                <select id="resource-type-select" defaultValue="BANK" onChange={(e)=>{
+                  const inp = document.getElementById('account-name-input') as HTMLInputElement;
+                  if(inp){
+                    if(e.target.value === 'BENEFIT_MARKET') inp.value = 'Vale-Mercado';
+                    else if(e.target.value === 'BENEFIT_FUEL') inp.value = 'Vale-Combustível';
+                    else if(e.target.value === 'CASH') inp.value = 'Dinheiro em Espécie';
+                    else if(e.target.value === 'SAVINGS') inp.value = 'Poupança';
+                  }
+                }}>
+                  <option value="BANK">Conta Corrente / Bancária (Nubank, Itaú, Inter, etc.)</option>
+                  <option value="BENEFIT_MARKET">Benefício Vale-Mercado / Alimentação (Alelo, VR, Sodexo)</option>
+                  <option value="BENEFIT_FUEL">Benefício Vale-Combustível / Mobilidade (Ticket Log, etc.)</option>
+                  <option value="CASH">Dinheiro em Espécie / Carteira Física</option>
+                  <option value="SAVINGS">Poupança / Reserva Bancária</option>
+                </select>
+              </label>
+              <label>Nome da Conta ou Benefício
+                <input id="account-name-input" name="name" required placeholder="Ex.: Nubank Principal, Vale-Mercado Alelo, Itaú"/>
+              </label>
+              <label>Saldo Inicial (R$)
+                <span style={{fontSize:'11px',color:'var(--text-muted)',display:'block',marginTop:'2px'}}>
+                  Informe quanto você possui atualmente (aceita valores negativos se houver saldo devedor/cheque especial).
+                </span>
+                <input name="balance" required type="number" step="0.01" defaultValue="0.00" placeholder="0.00" style={{marginTop:'6px'}}/>
+              </label>
             </>}
             {modal==='card'&&<>
               <label>Nome do cartão<input name="name" required placeholder="Ex.: Nubank Ultravioleta, XP Infinite"/></label>
@@ -2020,13 +2471,13 @@ function App(){
             </>}
             {modal==='entry'&&<>
               <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
-                Perfil Vinculado: <b>{current?.name || 'Individual'}</b>
+                Perfil Vinculado: <b>{current?.name || (profiles[0] ? profiles[0].name : 'Individual')}</b>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
                 <label>Tipo de Movimentação
-                  <select name="type">
-                    <option value="EXPENSE">Despesa (-)</option>
-                    <option value="INCOME">Receita (+)</option>
+                  <select name="type" defaultValue={entryKind}>
+                    <option value="EXPENSE">Despesa (Saída)</option>
+                    <option value="INCOME">Receita (Entrada)</option>
                   </select>
                 </label>
                 <label>Status
@@ -2036,9 +2487,9 @@ function App(){
                   </select>
                 </label>
               </div>
-              <label>Conta Bancária / Financeira
+              <label>Conta Bancária / Financeira / Benefício
                 <select name="accountId" required>
-                  {accounts.map(a=><option key={a.id} value={a.id}>{a.name} (Saldo: {money(a.openingBalance)})</option>)}
+                  {accounts.map(a=><option key={a.id} value={a.id}>{a.name} (Saldo Atual: {money(accountBalance(a))})</option>)}
                 </select>
               </label>
               <label>Descrição

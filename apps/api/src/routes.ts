@@ -12,7 +12,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 class RegisterDto { @IsString() @MinLength(2) name!:string; @IsString() @IsNotEmpty() email!:string; @IsString() @MinLength(6) password!:string; }
 class LoginDto { @IsString() @IsNotEmpty() email!:string; @IsString() password!:string; }
 class NameDto { @IsString() @IsNotEmpty() name!:string; }
-class AccountDto extends NameDto { @Matches(/^\d{1,16}(\.\d{1,2})?$/) openingBalance!:string; }
+class AccountDto extends NameDto { @Matches(/^-?\d{1,16}(\.\d{1,2})?$/) openingBalance!:string; }
 class EntryDto {
  @IsUUID() profileId!:string; @IsUUID() accountId!:string;
  @IsIn(['INCOME','EXPENSE']) type!:'INCOME'|'EXPENSE';

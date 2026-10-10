@@ -1,8 +1,8 @@
 {
-  "name": "boma-finance",
-  "version": "1.1.0",
+  "name": "vina-finace",
+  "version": "1.3.0",
   "private": true,
-  "description": "BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis (v1.1)",
+  "description": "VINA FINACE — ERP de Gestão Financeira Pessoal e Familiar",
   "workspaces": [
     "apps/*"
   ],

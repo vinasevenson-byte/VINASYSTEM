@@ -1,7 +1,7 @@
-# VINASYSTEM — BOMA Finance
+# VINASYSTEM — VINA FINACE
 
-> **BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis**  
-> **Versão 1.1** — Plataforma financeira moderna, segura e multiperfis construída com React 19, TypeScript, Node.js (NestJS), Tailwind CSS e PostgreSQL com Prisma ORM.
+> **VINA FINACE — ERP de Gestão Financeira Pessoal e Familiar**  
+> **Versão 1.3** — Plataforma financeira moderna, segura e multiperfis construída com React 19, TypeScript, Node.js (NestJS), Tailwind CSS e PostgreSQL com Prisma ORM.
 
 [![Production Deployment](https://img.shields.io/badge/Vercel-Deployed-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vinasystem-vert.vercel.app/)
 [![Invariants Tests](https://img.shields.io/badge/Invariants_Tests-6%2F6_Passing-success?style=for-the-badge)](tests/invariants.test.cjs)
@@ -18,7 +18,7 @@ A interface web está publicada e acessível em:
 
 ## 🏛️ Visão do Sistema
 
-O **BOMA Finance** é uma plataforma financeira de alta fidelidade desenhada sob o conceito de bancos digitais modernos (referência visual *Fiscaly* / *Finestra*). 
+O **VINA FINACE** é um ERP de gestão financeira pessoal e familiar de alta fidelidade desenhado sob o conceito de bancos digitais modernos (referência visual *Finlytics* / *Fiscaly*). 
 
 Sua principal característica é a **Arquitetura Multiperfis**: cada perfil financeiro (*Pessoal*, *Familiar*, *Patrimônio*, *Investimentos*, etc.) possui suas próprias contas, despesas, faturas de cartão e metas, com a capacidade de alternar instantaneamente para a **Visão Consolidada** — eliminando transferências internas e prevenindo qualquer duplicação contábil.
 
@@ -78,7 +78,7 @@ Sua principal característica é a **Arquitetura Multiperfis**: cada perfil fina
 - **Visão Temporal**: Análise de receitas, despesas e compromissos futuros com horizonte de projeção.
 - **Exportação de Dados**: Download instantâneo de extratos contábeis completos em formato CSV.
 
-### 10. BOMA Inteligente · Consultor Financeiro com IA (Gemini API)
+### 10. VINA Inteligente · Consultor Financeiro com IA (Gemini API)
 - **Diagnóstico em Tempo Real**: Cálculo de Score de Saúde Financeira (0-100), margem segura de gastos para o mês e superávit projetado para 90 dias.
 - **IA Generativa Conectada**: Integração com a API do Google Gemini com fallback determinístico local para consultoria executiva.
 

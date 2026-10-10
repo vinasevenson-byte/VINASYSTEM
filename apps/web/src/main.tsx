@@ -64,7 +64,7 @@ const DEMO_ADVISOR: AdvisorData = {
   status: 'EXCELENTE',
   safeMonthlySpend: '8672.50',
   threeMonthSurplus: '17680.00',
-  diagnosis: 'Diagnóstico BOMA Inteligente:\n\nSua saúde financeira encontra-se em nível EXCELENTE (Score 88/100). Seu fluxo operacional apresenta margem líquida superior a 50% da renda mensal. Suas reservas cobrem com folga os compromissos dos próximos 90 dias, e os limites de cartão estão com utilização inferior a 25% do teto.',
+  diagnosis: 'Diagnóstico VINA Inteligente:\n\nSua saúde financeira encontra-se em nível EXCELENTE (Score 88/100). Seu fluxo operacional apresenta margem líquida superior a 50% da renda mensal. Suas reservas cobrem com folga os compromissos dos próximos 90 dias, e os limites de cartão estão com utilização inferior a 25% do teto.',
   actionPlan: [
     'Margem de gasto discricionário seguro para este mês: R$ 8.672,50 sem comprometer nenhuma conta futura.',
     'Mantenha a programação dos aportes automáticos na meta de Reserva de Emergência.',
@@ -126,8 +126,8 @@ const api=async<T,>(path:string,token:string,body?:unknown,method?:string):Promi
 };
 
 function App(){
-  const [token,setToken]=useState(sessionStorage.getItem('boma_token')||'');
-  const [user,setUser]=useState(sessionStorage.getItem('boma_name')||'');
+  const [token,setToken]=useState(sessionStorage.getItem('vina_token')||sessionStorage.getItem('boma_token')||'');
+  const [user,setUser]=useState(sessionStorage.getItem('vina_name')||sessionStorage.getItem('boma_name')||'');
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [selected,setSelected]=useState('all');
   const [tab,setTab]=useState('dashboard');
@@ -180,6 +180,8 @@ function App(){
   },[selected,token,refresh]);
 
   const logout=()=>{
+    sessionStorage.removeItem('vina_token');
+    sessionStorage.removeItem('vina_name');
     sessionStorage.removeItem('boma_token');
     sessionStorage.removeItem('boma_name');
     setToken('');
@@ -211,7 +213,7 @@ function App(){
       const url=URL.createObjectURL(blob);
       const link=document.createElement('a');
       link.href=url;
-      link.setAttribute('download',`boma-finance-extrato-${new Date().toISOString().slice(0,10)}.csv`);
+      link.setAttribute('download',`vina-finace-extrato-${new Date().toISOString().slice(0,10)}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -228,23 +230,13 @@ function App(){
     const v=(key:string)=>String(f.get(key)||'');
     try{
       if(modal==='login'||modal==='register'){
-        try {
-          const r=await api<{token:string,user:{name:string}}>('/auth/'+modal,'',modal==='login'?{email:v('email'),password:v('password')}:{email:v('email'),password:v('password'),name:v('name')});
-          sessionStorage.setItem('boma_token',r.token);
-          sessionStorage.setItem('boma_name',r.user.name);
-          setToken(r.token);
-          setUser(r.user.name);
-        } catch (authErr: any) {
-          if (authErr.message.includes('API do backend indisponível') || authErr.message.includes('Não foi possível conectar')) {
-            const demoName = v('name') || (v('email').split('@')[0]) || 'Vinicius BOMA';
-            sessionStorage.setItem('boma_token', 'demo_token');
-            sessionStorage.setItem('boma_name', demoName);
-            setToken('demo_token');
-            setUser(demoName);
-            return;
-          }
-          throw authErr;
-        }
+        const r=await api<{token:string,user:{name:string}}>('/auth/'+modal,'',modal==='login'?{email:v('email'),password:v('password')}:{email:v('email'),password:v('password'),name:v('name')});
+        sessionStorage.setItem('vina_token',r.token);
+        sessionStorage.setItem('vina_name',r.user.name);
+        sessionStorage.removeItem('boma_token');
+        sessionStorage.removeItem('boma_name');
+        setToken(r.token);
+        setUser(r.user.name);
       }else if(modal==='profile'){
         const created=await api<{id:string}>('/profiles',token,{name:v('name')});
         if(created?.id)setSelected(created.id);
@@ -309,10 +301,10 @@ function App(){
       <div className="auth-wrapper">
         <div className="login-card">
           <div style={{display:'flex',justifyContent:'center',marginBottom:'14px'}}>
-            <div className="brand-icon" style={{width:'48px',height:'48px',fontSize:'22px'}}>B</div>
+            <div className="brand-icon" style={{width:'48px',height:'48px',fontSize:'22px'}}>V</div>
           </div>
-          <h1>BOMA Finance</h1>
-          <p>Gestão Financeira Pessoal, Familiar e Multiperfis</p>
+          <h1>VINA FINACE</h1>
+          <p>ERP de Gestão Financeira Pessoal e Familiar</p>
           <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
             <button className={modal==='login'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('login')}>Entrar</button>
             <button className={modal==='register'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('register')}>Cadastre-se</button>
@@ -322,19 +314,19 @@ function App(){
             <label>E-mail<input name="email" type="email" required placeholder="seu@email.com"/></label>
             <label>Senha de acesso (mínimo 12 caracteres)<input name="password" type="password" minLength={12} required placeholder="••••••••••••"/></label>
             {error&&<div className="error">{error}</div>}
-            <button className="primary" style={{width:'100%',marginTop:'8px',padding:'12px'}} type="submit" disabled={busy}>{busy?'Autenticando...':modal==='login'?'Acessar BOMA Finance':'Criar minha conta'}</button>
+            <button className="primary" style={{width:'100%',marginTop:'8px',padding:'12px'}} type="submit" disabled={busy}>{busy?'Autenticando...':modal==='login'?'Acessar VINA FINACE':'Criar minha conta'}</button>
             <button
               type="button"
               className="secondary"
               style={{width:'100%',marginTop:'10px',background:'#def3ef',color:'#11756f',borderColor:'#a2dec9',fontWeight:700,fontSize:'13px',padding:'11px'}}
               onClick={()=>{
-                sessionStorage.setItem('boma_token','demo_token');
-                sessionStorage.setItem('boma_name','Vinicius BOMA');
+                sessionStorage.setItem('vina_token','demo_token');
+                sessionStorage.setItem('vina_name','Vinicius VINA');
                 setToken('demo_token');
-                setUser('Vinicius BOMA');
+                setUser('Vinicius VINA');
               }}
             >
-              ✨ Acessar Modo Demonstração (Vercel Preview)
+              ✨ Acessar Modo Demonstração (VINA Preview)
             </button>
           </form>
         </div>
@@ -346,8 +338,8 @@ function App(){
     <div className="app">
       <aside className={`sidebar ${collapsed?'collapsed':''}`}>
         <div className="brand">
-          <div className="brand-icon">B</div>
-          {!collapsed&&<div><h1>BOMA Finance</h1><span>v1.3 · Finlytics Pro</span></div>}
+          <div className="brand-icon">V</div>
+          {!collapsed&&<div><h1>VINA FINACE</h1><span>ERP Pessoal & Familiar</span></div>}
         </div>
 
         <div className="sidebar-scroll">
@@ -362,7 +354,7 @@ function App(){
           <button className={`nav-item ${tab==='goals'?'active':''}`} onClick={()=>setTab('goals')} title="Metas Financeiras"><Target size={18}/>{!collapsed&&<span>Metas Financeiras</span>}</button>
           <button className={`nav-item ${tab==='budgets'?'active':''}`} onClick={()=>setTab('budgets')} title="Orçamentos"><PieChart size={18}/>{!collapsed&&<span>Orçamentos</span>}</button>
           <button className={`nav-item ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')} title="Fluxo de Caixa & Relatórios"><TrendingUp size={18}/>{!collapsed&&<span>Fluxo & Relatórios</span>}</button>
-          <button className={`nav-item ${tab==='advisor'?'active':''}`} onClick={()=>setTab('advisor')} title="BOMA Inteligente (IA)"><Sparkles size={18}/>{!collapsed&&<span>BOMA Inteligente (IA)</span>}</button>
+          <button className={`nav-item ${tab==='advisor'?'active':''}`} onClick={()=>setTab('advisor')} title="VINA Inteligente (IA)"><Sparkles size={18}/>{!collapsed&&<span>VINA Inteligente (IA)</span>}</button>
 
           {!collapsed&&<div className="nav-section-title">Gestão & Sistema</div>}
           <button className={`nav-item ${tab==='transfers'?'active':''}`} onClick={()=>setTab('transfers')} title="Transferências Internas"><ArrowLeftRight size={18}/>{!collapsed&&<span>Transferências</span>}</button>
@@ -536,7 +528,7 @@ function App(){
               <div style={{display:'flex',flexDirection:'column',gap:'22px'}}>
                 <section className="panel" style={{borderLeft:'4px solid #0d9488'}}>
                   <div className="panel-title" style={{marginBottom:'12px'}}>
-                    <h2>BOMA IA · Diagnóstico</h2>
+                    <h2>VINA IA · Diagnóstico</h2>
                     <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('advisor')}>Abrir</button>
                   </div>
                   <div style={{background:'#f0fdfa',padding:'16px',borderRadius:'12px',border:'1px solid #99f6e4',marginBottom:'12px'}}>
@@ -751,7 +743,7 @@ function App(){
 
           {tab==='advisor'&&<section className="panel">
             <div className="panel-title">
-              <h2>Consultor Financeiro Inteligente (IA Gemini)</h2>
+              <h2>VINA Inteligente · Consultor Financeiro (IA)</h2>
               <span className="pill" style={{background:'#def3ef',color:'#11756f'}}><Sparkles size={12}/> Gemini Ativo</span>
             </div>
             <p className="muted">Análise preditiva fundamentada em seus saldos reais, despesas, faturas de cartão e compromissos dos próximos 90 dias.</p>
@@ -782,7 +774,7 @@ function App(){
                 </div>
 
                 <div style={{background:'#ffffff',padding:'18px',borderRadius:'12px',border:'1px solid #e1e7f0',lineHeight:1.6}}>
-                  <h3 style={{fontSize:'15px',fontWeight:700,marginBottom:'8px',display:'flex',alignItems:'center',gap:'6px'}}><Sparkles size={16} color="#13a294"/> Diagnóstico do Consultor</h3>
+                  <h3 style={{fontSize:'15px',fontWeight:700,marginBottom:'8px',display:'flex',alignItems:'center',gap:'6px'}}><Sparkles size={16} color="#13a294"/> Diagnóstico VINA Inteligente</h3>
                   <div style={{fontSize:'13px',color:'#233649',whiteSpace:'pre-wrap'}}>{advisor.diagnosis}</div>
                   <h4 style={{fontSize:'13px',fontWeight:700,marginTop:'14px',marginBottom:'6px'}}>Plano de Ação Sugerido:</h4>
                   <ul style={{fontSize:'12px',color:'#556578',paddingLeft:'20px',margin:0}}>

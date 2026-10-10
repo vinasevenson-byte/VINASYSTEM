@@ -46,6 +46,7 @@ model Profile {
   accounts    Account[]
   entries     Entry[]
   categories  Category[]
+  creditCards CreditCard[]
 }
 
 model Membership {
@@ -128,3 +129,65 @@ model ConsolidationGroup {
 
   @@index([userId])
 }
+
+enum InvoiceStatus {
+  OPEN
+  CLOSED
+  PAID
+  OVERDUE
+}
+
+model CreditCard {
+  id         String         @id @default(uuid()) @db.Uuid
+  profileId  String         @db.Uuid
+  name       String
+  limit      Decimal        @db.Decimal(18, 2)
+  closingDay Int
+  dueDay     Int
+  color      String?
+  createdAt  DateTime       @default(now())
+  profile    Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  invoices   Invoice[]
+  purchases  CardPurchase[]
+
+  @@unique([id, profileId])
+}
+
+model Invoice {
+  id             String         @id @default(uuid()) @db.Uuid
+  cardId         String         @db.Uuid
+  profileId      String         @db.Uuid
+  referenceMonth String
+  dueDate        DateTime
+  closingDate    DateTime
+  totalAmount    Decimal        @default(0) @db.Decimal(18, 2)
+  paidAmount     Decimal        @default(0) @db.Decimal(18, 2)
+  status         InvoiceStatus  @default(OPEN)
+  createdAt      DateTime       @default(now())
+  card           CreditCard     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  purchases      CardPurchase[]
+
+  @@unique([cardId, referenceMonth])
+  @@index([profileId, status])
+}
+
+model CardPurchase {
+  id                String      @id @default(uuid()) @db.Uuid
+  cardId            String      @db.Uuid
+  profileId         String      @db.Uuid
+  invoiceId         String?     @db.Uuid
+  description       String
+  amount            Decimal     @db.Decimal(18, 2)
+  totalAmount       Decimal     @db.Decimal(18, 2)
+  installmentNumber Int         @default(1)
+  totalInstallments Int         @default(1)
+  purchaseDate      DateTime
+  categoryId        String?     @db.Uuid
+  createdAt         DateTime    @default(now())
+  card              CreditCard  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  invoice           Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([cardId, invoiceId])
+  @@index([profileId, purchaseDate])
+}
+

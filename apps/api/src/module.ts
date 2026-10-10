@@ -5,7 +5,8 @@ import { Db } from './db';
 import { FinanceController } from './routes';
 import { AuditService } from './audit';
 import { RateLimiterService } from './rate-limiter';
-export { Db, AuditService, RateLimiterService };
+import { AdvisorService } from './advisor';
+export { Db, AuditService, RateLimiterService, AdvisorService };
 @Injectable() export class AuthGuard implements CanActivate {
   canActivate(ctx:ExecutionContext) {
     const req=ctx.switchToHttp().getRequest();
@@ -14,4 +15,4 @@ export { Db, AuditService, RateLimiterService };
     catch {throw new UnauthorizedException('Sessão inválida ou expirada');}
   }
 }
-@Module({controllers:[FinanceController],providers:[Db,AuditService,RateLimiterService,{provide:APP_GUARD,useClass:AuthGuard}]}) export class AppModule {}
+@Module({controllers:[FinanceController],providers:[Db,AuditService,RateLimiterService,AdvisorService,{provide:APP_GUARD,useClass:AuthGuard}]}) export class AppModule {}

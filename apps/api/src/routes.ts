@@ -4,6 +4,7 @@ import { IsEmail, IsUUID, IsIn, IsISO8601, IsNotEmpty, IsOptional, IsString, Min
 import { Db } from './db';
 import { AuditService } from './audit';
 import { RateLimiterService } from './rate-limiter';
+import { AdvisorService } from './advisor';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -28,8 +29,40 @@ class GroupDto { @IsString() @IsNotEmpty() name!:string; @IsArray() profileIds!:
 class CreditCardDto { @IsString() @IsNotEmpty() name!:string; @Matches(/^\d{1,16}(\.\d{1,2})?$/) limit!:string; @IsInt() @Min(1) @Max(31) closingDay!:number; @IsInt() @Min(1) @Max(31) dueDay!:number; @IsOptional() @IsString() color?:string; }
 class CardPurchaseDto { @IsString() @IsNotEmpty() description!:string; @Matches(/^\d{1,16}(\.\d{1,2})?$/) totalAmount!:string; @IsInt() @Min(1) @Max(48) totalInstallments!:number; @IsISO8601() purchaseDate!:string; @IsOptional() @IsUUID() categoryId?:string; }
 class PayInvoiceDto { @IsUUID() accountId!:string; }
+class CommitmentDto {
+ @IsIn(['PAYABLE','RECEIVABLE']) type!:'PAYABLE'|'RECEIVABLE';
+ @IsString() @IsNotEmpty() description!:string;
+ @Matches(/^\d{1,16}(\.\d{1,2})?$/) amount!:string;
+ @IsISO8601() dueDate!:string;
+ @IsOptional() @IsString() entityName?:string;
+ @IsOptional() @IsString() category?:string;
+ @IsOptional() @IsUUID() accountId?:string;
+ @IsOptional() isRecurring?:boolean;
+ @IsOptional() @IsString() period?:string;
+ @IsOptional() @IsString() notes?:string;
+}
+class SettleCommitmentDto { @IsUUID() accountId!:string; }
+class GoalDto {
+ @IsString() @IsNotEmpty() name!:string;
+ @Matches(/^\d{1,16}(\.\d{1,2})?$/) targetAmount!:string;
+ @IsOptional() @IsISO8601() targetDate?:string;
+ @IsOptional() @IsString() color?:string;
+}
+class DepositGoalDto {
+ @Matches(/^\d{1,16}(\.\d{1,2})?$/) amount!:string;
+ @IsOptional() @IsUUID() accountId?:string;
+}
+class BudgetDto {
+ @IsString() @Matches(/^\d{4}-\d{2}$/) referenceMonth!:string;
+ @IsString() @IsNotEmpty() categoryName!:string;
+ @Matches(/^\d{1,16}(\.\d{1,2})?$/) plannedAmount!:string;
+}
+class AdvisorQueryDto {
+ @IsOptional() @IsString() question?:string;
+ @IsOptional() @IsUUID() profileId?:string;
+}
 @Controller('api') export class FinanceController {
- constructor(@Inject(Db) private db:Db, @Inject(AuditService) private audit:AuditService, @Inject(RateLimiterService) private rateLimiter:RateLimiterService){}
+ constructor(@Inject(Db) private db:Db, @Inject(AuditService) private audit:AuditService, @Inject(RateLimiterService) private rateLimiter:RateLimiterService, @Inject(AdvisorService) private advisor:AdvisorService){}
  private sign(id:string){return jwt.sign({sub:id},process.env.JWT_SECRET!,{expiresIn:'8h'});}
  private positive(v:string){const d=new Decimal(v);if(!d.isFinite()||d.lte(0))throw new BadRequestException('Valor deve ser positivo');return d;}
  private async member(userId:string,profileId:string,write=false){const m=await this.db.membership.findUnique({where:{userId_profileId:{userId,profileId}}});if(!m||write&&m.role==='VIEWER')throw new ForbiddenException('Sem permissão no perfil');return m;}
@@ -61,5 +94,196 @@ class PayInvoiceDto { @IsUUID() accountId!:string; }
   const opening=accounts.reduce((v,a)=>v.plus(a.openingBalance),new Decimal(0));const now=new Date();const start=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1));const end=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1));let income=new Decimal(0),expense=new Decimal(0),balance=opening,projectedBalance=opening,scheduledIncome=new Decimal(0),scheduledExpense=new Decimal(0);
   for(const e of entries){if(e.status==='VOID')continue;const signed=e.type==='INCOME'||e.type==='TRANSFER_IN'?e.amount:e.amount.negated();if(e.status==='POSTED'){balance=balance.plus(signed);projectedBalance=projectedBalance.plus(signed);if(e.occurredAt>=start&&e.occurredAt<end){if(e.type==='INCOME')income=income.plus(e.amount);if(e.type==='EXPENSE')expense=expense.plus(e.amount);}}else if(e.status==='SCHEDULED'){projectedBalance=projectedBalance.plus(signed);if(e.occurredAt>=start&&e.occurredAt<end){if(e.type==='INCOME')scheduledIncome=scheduledIncome.plus(e.amount);if(e.type==='EXPENSE')scheduledExpense=scheduledExpense.plus(e.amount);}}}
   return {income:income.toFixed(2),expense:expense.toFixed(2),result:income.minus(expense).toFixed(2),balance:balance.toFixed(2),projectedBalance:projectedBalance.toFixed(2),scheduledIncome:scheduledIncome.toFixed(2),scheduledExpense:scheduledExpense.toFixed(2),profileCount:ids.length,accountCount:accounts.length};
+ }
+ @Get('profiles/:id/commitments') async profileCommitments(@Req() req:any,@Param('id') id:string,@Query('status') status?:string){
+  await this.member(req.userId,id);
+  return this.db.commitment.findMany({where:{profileId:id,...(status?{status:status as any}:{})},orderBy:{dueDate:'asc'}});
+ }
+ @Post('profiles/:id/commitments') async createCommitment(@Req() req:any,@Param('id') id:string,@Body() b:CommitmentDto){
+  await this.member(req.userId,id,true);
+  const amount=this.positive(b.amount);
+  return this.db.commitment.create({data:{profileId:id,type:b.type,description:b.description,amount,dueDate:new Date(b.dueDate),entityName:b.entityName,category:b.category,accountId:b.accountId,isRecurring:!!b.isRecurring,period:b.period||'MONTHLY',notes:b.notes}});
+ }
+ @Post('commitments/:id/settle') async settleCommitment(@Req() req:any,@Param('id') id:string,@Body() b:SettleCommitmentDto){
+  const comm=await this.db.commitment.findUnique({where:{id}});
+  if(!comm)throw new NotFoundException('Compromisso não encontrado');
+  await this.member(req.userId,comm.profileId,true);
+  const account=await this.db.account.findFirst({where:{id:b.accountId,profileId:comm.profileId}});
+  if(!account)throw new BadRequestException('Conta inválida para este perfil');
+  return this.db.$transaction(async tx=>{
+   const entryType=comm.type==='PAYABLE'?'EXPENSE':'INCOME';
+   const entry=await tx.entry.create({data:{profileId:comm.profileId,accountId:account.id,type:entryType,status:'POSTED',amount:comm.amount,description:`Liquidação: ${comm.description}`,occurredAt:new Date()}});
+   const updated=await tx.commitment.update({where:{id},data:{status:'PAID',paidAt:new Date(),accountId:account.id}});
+   return {commitment:updated,entry};
+  });
+ }
+ @Delete('commitments/:id') async deleteCommitment(@Req() req:any,@Param('id') id:string){
+  const comm=await this.db.commitment.findUnique({where:{id}});
+  if(!comm)throw new NotFoundException('Compromisso não encontrado');
+  await this.member(req.userId,comm.profileId,true);
+  await this.db.commitment.delete({where:{id}});
+  return {status:'deleted'};
+ }
+ @Get('profiles/:id/goals') async profileGoals(@Req() req:any,@Param('id') id:string){
+  await this.member(req.userId,id);
+  const goals=await this.db.financialGoal.findMany({where:{profileId:id},orderBy:{createdAt:'asc'}});
+  return goals.map(g=>{
+   const progress=g.targetAmount.gt(0)?g.currentAmount.dividedBy(g.targetAmount).times(100).toDecimalPlaces(1).toNumber():0;
+   return {...g,progress:Math.min(100,progress)};
+  });
+ }
+ @Post('profiles/:id/goals') async createGoal(@Req() req:any,@Param('id') id:string,@Body() b:GoalDto){
+  await this.member(req.userId,id,true);
+  const targetAmount=this.positive(b.targetAmount);
+  return this.db.financialGoal.create({data:{profileId:id,name:b.name,targetAmount,targetDate:b.targetDate?new Date(b.targetDate):null,color:b.color||'#10B981'}});
+ }
+ @Post('goals/:id/deposit') async depositGoal(@Req() req:any,@Param('id') id:string,@Body() b:DepositGoalDto){
+  const goal=await this.db.financialGoal.findUnique({where:{id}});
+  if(!goal)throw new NotFoundException('Meta não encontrada');
+  await this.member(req.userId,goal.profileId,true);
+  const amount=this.positive(b.amount);
+  return this.db.$transaction(async tx=>{
+   if(b.accountId){
+    const acc=await tx.account.findFirst({where:{id:b.accountId,profileId:goal.profileId}});
+    if(!acc)throw new BadRequestException('Conta bancária não encontrada no perfil');
+    await tx.entry.create({data:{profileId:goal.profileId,accountId:acc.id,type:'EXPENSE',status:'POSTED',amount,description:`Aporte Meta: ${goal.name}`,occurredAt:new Date()}});
+   }
+   const newTotal=goal.currentAmount.plus(amount);
+   const isCompleted=newTotal.gte(goal.targetAmount);
+   return tx.financialGoal.update({where:{id},data:{currentAmount:newTotal,status:isCompleted?'COMPLETED':goal.status}});
+  });
+ }
+ @Get('profiles/:id/budgets') async profileBudgets(@Req() req:any,@Param('id') id:string,@Query('month') month?:string){
+  await this.member(req.userId,id);
+  const now=new Date();
+  const refMonth=month||`${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}`;
+  const budgets=await this.db.budget.findMany({where:{profileId:id,referenceMonth:refMonth}});
+  const entries=await this.db.entry.findMany({where:{profileId:id,type:'EXPENSE',status:'POSTED'},include:{category:true}});
+  return budgets.map(b=>{
+   const spent=entries.filter(e=>e.category?.name===b.categoryName||e.description.toLowerCase().includes(b.categoryName.toLowerCase())).reduce((sum,e)=>sum.plus(e.amount),new Decimal(0));
+   const pct=b.plannedAmount.gt(0)?spent.dividedBy(b.plannedAmount).times(100).toDecimalPlaces(1).toNumber():0;
+   return {...b,spentAmount:spent.toFixed(2),percentageUsed:pct};
+  });
+ }
+ @Post('profiles/:id/budgets') async createOrUpdateBudget(@Req() req:any,@Param('id') id:string,@Body() b:BudgetDto){
+  await this.member(req.userId,id,true);
+  const planned=this.positive(b.plannedAmount);
+  return this.db.budget.upsert({where:{profileId_referenceMonth_categoryName:{profileId:id,referenceMonth:b.referenceMonth,categoryName:b.categoryName}},update:{plannedAmount:planned},create:{profileId:id,referenceMonth:b.referenceMonth,categoryName:b.categoryName,plannedAmount:planned}});
+ }
+ @Get('reports/cashflow') async cashflowReport(@Req() req:any,@Query('profileId') profileId?:string){
+  const memberships=await this.db.membership.findMany({where:{userId:req.userId}});
+  const permitted=memberships.map(m=>m.profileId);
+  if(profileId&&!permitted.includes(profileId))throw new ForbiddenException('Perfil sem acesso');
+  const ids=profileId?[profileId]:permitted;
+  const [entries,commitments,invoices]=await Promise.all([
+   this.db.entry.findMany({where:{profileId:{in:ids}}}),
+   this.db.commitment.findMany({where:{profileId:{in:ids},status:'PENDING'}}),
+   this.db.invoice.findMany({where:{profileId:{in:ids},status:'OPEN'}})
+  ]);
+  const monthsData:Record<string,{income:Decimal,expense:Decimal,obligations:Decimal}>={};
+  const now=new Date();
+  for(let i=-2;i<=3;i++){
+   const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+i,1));
+   const key=`${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}`;
+   monthsData[key]={income:new Decimal(0),expense:new Decimal(0),obligations:new Decimal(0)};
+  }
+  for(const e of entries){
+   if(e.status==='VOID')continue;
+   const key=`${e.occurredAt.getUTCFullYear()}-${String(e.occurredAt.getUTCMonth()+1).padStart(2,'0')}`;
+   if(monthsData[key]){
+    if(e.type==='INCOME')monthsData[key].income=monthsData[key].income.plus(e.amount);
+    if(e.type==='EXPENSE')monthsData[key].expense=monthsData[key].expense.plus(e.amount);
+   }
+  }
+  for(const c of commitments){
+   const key=`${c.dueDate.getUTCFullYear()}-${String(c.dueDate.getUTCMonth()+1).padStart(2,'0')}`;
+   if(monthsData[key]){
+    if(c.type==='PAYABLE')monthsData[key].obligations=monthsData[key].obligations.plus(c.amount);
+    if(c.type==='RECEIVABLE')monthsData[key].income=monthsData[key].income.plus(c.amount);
+   }
+  }
+  for(const inv of invoices){
+   if(monthsData[inv.referenceMonth]){
+    monthsData[inv.referenceMonth].obligations=monthsData[inv.referenceMonth].obligations.plus(inv.totalAmount);
+   }
+  }
+  return Object.entries(monthsData).map(([month,data])=>({
+   month,
+   income:data.income.toFixed(2),
+   expense:data.expense.toFixed(2),
+   obligations:data.obligations.toFixed(2),
+   net:data.income.minus(data.expense).minus(data.obligations).toFixed(2)
+  }));
+ }
+ @Get('reports/export') async exportReport(@Req() req:any,@Query('profileId') profileId?:string){
+  const memberships=await this.db.membership.findMany({where:{userId:req.userId}});
+  const permitted=memberships.map(m=>m.profileId);
+  if(profileId&&!permitted.includes(profileId))throw new ForbiddenException('Perfil sem acesso');
+  const ids=profileId?[profileId]:permitted;
+  const entries=await this.db.entry.findMany({where:{profileId:{in:ids}},include:{account:true,profile:true},orderBy:{occurredAt:'desc'}});
+  const header='ID,Data,Perfil,Conta,Tipo,Status,Descricao,Valor(R$),Conciliado\n';
+  const rows=entries.map(e=>`"${e.id}","${e.occurredAt.toISOString()}","${e.profile.name}","${e.account.name}","${e.type}","${e.status}","${e.description.replace(/"/g,'""')}","${e.amount.toFixed(2)}","${e.reconciled?'Sim':'Não'}"`).join('\n');
+  return {csv:header+rows,totalRecords:entries.length};
+ }
+ @Post('ai/advisor') async aiAdvisor(@Req() req:any,@Body() b:AdvisorQueryDto){
+  const memberships=await this.db.membership.findMany({where:{userId:req.userId}});
+  const permitted=memberships.map(m=>m.profileId);
+  const targetProfileId=b.profileId||permitted[0];
+  if(!targetProfileId||!permitted.includes(targetProfileId))throw new ForbiddenException('Perfil não autorizado');
+  const profile=await this.db.profile.findUnique({where:{id:targetProfileId}});
+  if(!profile)throw new NotFoundException('Perfil não encontrado');
+
+  const [accounts,entries,commitments,invoices,goals]=await Promise.all([
+   this.db.account.findMany({where:{profileId:targetProfileId}}),
+   this.db.entry.findMany({where:{profileId:targetProfileId}}),
+   this.db.commitment.findMany({where:{profileId:targetProfileId,status:'PENDING'}}),
+   this.db.invoice.findMany({where:{profileId:targetProfileId,status:'OPEN'}}),
+   this.db.financialGoal.findMany({where:{profileId:targetProfileId}})
+  ]);
+
+  const opening=accounts.reduce((v,a)=>v.plus(a.openingBalance),new Decimal(0));
+  let balance=opening;
+  const now=new Date();
+  const startMonth=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1));
+  const endMonth=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1));
+  const next30=new Date(Date.now()+30*86400000);
+  const next90=new Date(Date.now()+90*86400000);
+
+  let monthlyIncome=new Decimal(0), monthlyExpense=new Decimal(0);
+  for(const e of entries){
+   if(e.status==='VOID')continue;
+   const signed=e.type==='INCOME'||e.type==='TRANSFER_IN'?e.amount:e.amount.negated();
+   if(e.status==='POSTED')balance=balance.plus(signed);
+   if(e.occurredAt>=startMonth&&e.occurredAt<endMonth){
+    if(e.type==='INCOME')monthlyIncome=monthlyIncome.plus(e.amount);
+    if(e.type==='EXPENSE')monthlyExpense=monthlyExpense.plus(e.amount);
+   }
+  }
+
+  let pending30=new Decimal(0), pending90Pay=new Decimal(0), pending90Rec=new Decimal(0);
+  for(const c of commitments){
+   if(c.dueDate<=next30&&c.type==='PAYABLE')pending30=pending30.plus(c.amount);
+   if(c.dueDate<=next90){
+    if(c.type==='PAYABLE')pending90Pay=pending90Pay.plus(c.amount);
+    if(c.type==='RECEIVABLE')pending90Rec=pending90Rec.plus(c.amount);
+   }
+  }
+
+  const openInvoiceAmount=invoices.reduce((sum,inv)=>sum.plus(inv.totalAmount),new Decimal(0));
+  const totalSavedInGoals=goals.reduce((sum,g)=>sum.plus(g.currentAmount),new Decimal(0));
+
+  return this.advisor.analyze({
+   profileName:profile.name,
+   totalLiquidBalance:balance,
+   monthlyIncome,
+   monthlyExpense,
+   pendingPayablesNext30Days:pending30,
+   pendingPayablesNext90Days:pending90Pay,
+   pendingReceivablesNext90Days:pending90Rec,
+   openInvoiceAmount,
+   totalCardLimit:new Decimal(0),
+   goalsCount:goals.length,
+   totalSavedInGoals
+  },b.question);
  }
 }

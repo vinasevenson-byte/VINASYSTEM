@@ -47,6 +47,9 @@ model Profile {
   entries     Entry[]
   categories  Category[]
   creditCards CreditCard[]
+  goals       FinancialGoal[]
+  budgets     Budget[]
+  commitments Commitment[]
 }
 
 model Membership {
@@ -190,4 +193,73 @@ model CardPurchase {
   @@index([cardId, invoiceId])
   @@index([profileId, purchaseDate])
 }
+
+enum GoalStatus {
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+}
+
+model FinancialGoal {
+  id            String     @id @default(uuid()) @db.Uuid
+  profileId     String     @db.Uuid
+  name          String
+  targetAmount  Decimal    @db.Decimal(18, 2)
+  currentAmount Decimal    @default(0) @db.Decimal(18, 2)
+  targetDate    DateTime?
+  status        GoalStatus @default(IN_PROGRESS)
+  color         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  profile       Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model Budget {
+  id             String   @id @default(uuid()) @db.Uuid
+  profileId      String   @db.Uuid
+  referenceMonth String
+  categoryName   String
+  plannedAmount  Decimal  @db.Decimal(18, 2)
+  createdAt      DateTime @default(now())
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, referenceMonth, categoryName])
+}
+
+enum CommitmentType {
+  PAYABLE
+  RECEIVABLE
+}
+
+enum CommitmentStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Commitment {
+  id          String           @id @default(uuid()) @db.Uuid
+  profileId   String           @db.Uuid
+  type        CommitmentType
+  status      CommitmentStatus @default(PENDING)
+  description String
+  amount      Decimal          @db.Decimal(18, 2)
+  dueDate     DateTime
+  entityName  String?
+  category    String?
+  accountId   String?          @db.Uuid
+  isRecurring Boolean          @default(false)
+  period      String?
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime         @default(now())
+  profile     Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, dueDate])
+  @@index([profileId, status])
+}
+
+
 

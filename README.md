@@ -63,6 +63,25 @@ Sua principal característica é a **Arquitetura Multiperfis**: cada perfil fina
 - **Limite Disponível em Tempo Real**: Subtração automática do saldo devedor e restituição do limite mediante pagamentos.
 - **Quitação Sem Duplicidade Contábil**: O pagamento de fatura debita a conta bancária como liquidação de passivo, prevenindo dupla contagem no DRE.
 
+### 6. Gestão de Compromissos (Contas a Pagar & Receber)
+- **Obrigações e Créditos**: Cadastro de contas a pagar e a receber com data de vencimento, credor/beneficiário, categoria e status (Pendente / Liquidado).
+- **Liquidação Integrada**: A quitação do compromisso gera automaticamente o lançamento contábil correspondente na conta bancária selecionada.
+
+### 7. Metas Financeiras e Aportes
+- **Acompanhamento de Objetivos**: Metas de curto, médio e longo prazo (Reserva de Emergência, Imóvel, Viagem) com cálculo percentual de progresso em tempo real.
+- **Aportes Rápidos**: Integração opcional com débito em conta corrente.
+
+### 8. Planejamento Orçamentário por Categoria
+- **Tetos de Gastos Mensais**: Configuração de orçamentos por categoria com monitoramento em tempo real do gasto realizado e percentual consumido.
+
+### 9. Projeção de Fluxo de Caixa e Exportação
+- **Visão Temporal**: Análise de receitas, despesas e compromissos futuros com horizonte de projeção.
+- **Exportação de Dados**: Download instantâneo de extratos contábeis completos em formato CSV.
+
+### 10. BOMA Inteligente · Consultor Financeiro com IA (Gemini API)
+- **Diagnóstico em Tempo Real**: Cálculo de Score de Saúde Financeira (0-100), margem segura de gastos para o mês e superávit projetado para 90 dias.
+- **IA Generativa Conectada**: Integração com a API do Google Gemini com fallback determinístico local para consultoria executiva.
+
 ---
 
 ## 💎 Regras Fundamentais do Motor Financeiro

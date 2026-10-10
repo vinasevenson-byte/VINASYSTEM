@@ -1,5 +1,6 @@
-# BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis
+# VINASYSTEM — BOMA Finance
 
+> **BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis**  
 > **Versão 1.0** — Plataforma financeira moderna, independente e multiperfis construída com React, TypeScript, Node.js, Tailwind CSS e PostgreSQL.
 
 ---

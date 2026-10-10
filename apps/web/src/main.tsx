@@ -1,11 +1,11 @@
 import React,{useEffect,useState} from 'react';
 import{createRoot}from'react-dom/client';
-import{LayoutDashboard,Users,Wallet,ReceiptText,Landmark,ArrowLeftRight,LogOut,Plus,Menu,ChartNoAxesCombined,ShieldCheck,CreditCard,CheckCircle2,Clock,RotateCcw,Target,Calendar,Bot,FileSpreadsheet,Sparkles,TrendingUp,AlertTriangle,ArrowDownRight,ArrowUpRight,DollarSign,PieChart}from'lucide-react';
+import{LayoutDashboard,Users,Wallet,ReceiptText,Landmark,ArrowLeftRight,LogOut,Plus,Menu,ChartNoAxesCombined,ShieldCheck,CreditCard,CheckCircle2,Clock,RotateCcw,Target,Calendar,Bot,FileSpreadsheet,Sparkles,TrendingUp,AlertTriangle,ArrowDownRight,ArrowUpRight,DollarSign,PieChart,Pencil,Trash2,Search,Filter}from'lucide-react';
 import './style.css';
 
 type Profile={id:string,name:string,role:string};
 type Account={id:string,name:string,openingBalance:string};
-type Entry={id:string,type:string,status:string,amount:string,description:string,occurredAt:string,reconciled?:boolean,account:{name:string}};
+type Entry={id:string,type:string,status:string,amount:string,description:string,occurredAt:string,reconciled?:boolean,accountId?:string,account:{name:string}};
 type Card={id:string,name:string,limit:string,closingDay:number,dueDay:number,color?:string,availableLimit:string,currentInvoice?:{id:string,referenceMonth:string,totalAmount:string,status:string}};
 type Commitment={id:string,type:'PAYABLE'|'RECEIVABLE',status:'PENDING'|'PAID',description:string,amount:string,dueDate:string,entityName?:string,category?:string,paidAt?:string};
 type Goal={id:string,name:string,targetAmount:string,currentAmount:string,progress:number,targetDate?:string,status:string,color?:string};
@@ -296,6 +296,29 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
     return entry as unknown as T;
   }
 
+  const entryIdMatch = path.match(/^\/entries\/([^/]+)$/);
+  if (entryIdMatch) {
+    const id = entryIdMatch[1];
+    if (method === 'DELETE') {
+      state.entries = state.entries.filter(e => e.id !== id);
+      saveLocalState(state);
+      return { success: true, deletedId: id } as unknown as T;
+    }
+    if (method === 'PUT') {
+      const idx = state.entries.findIndex(e => e.id === id);
+      if (idx !== -1) {
+        const acc = b?.accountId ? state.accounts.find(a => a.id === b.accountId) : undefined;
+        state.entries[idx] = {
+          ...state.entries[idx],
+          ...b,
+          account: acc ? { name: acc.name } : state.entries[idx].account
+        };
+        saveLocalState(state);
+        return state.entries[idx] as unknown as T;
+      }
+    }
+  }
+
   if (path === '/transfers') {
     const fromAcc = state.accounts.find(a => a.id === b?.fromAccountId);
     const toAcc = state.accounts.find(a => a.id === b?.toAccountId);
@@ -556,6 +579,10 @@ function App(){
   const [collapsed,setCollapsed]=useState(false);
   const [refresh,setRefresh]=useState(0);
   const [cloudGreeting,setCloudGreeting]=useState('');
+  const [editingEntry,setEditingEntry]=useState<Entry|null>(null);
+  const [entrySearch,setEntrySearch]=useState('');
+  const [entryTypeFilter,setEntryTypeFilter]=useState('ALL');
+  const [entryStatusFilter,setEntryStatusFilter]=useState('ALL');
 
   useEffect(()=>{
     fetch('/api/welcome').then(r=>r.json()).then(d=>{
@@ -645,6 +672,96 @@ function App(){
     setModal('entry');
   };
 
+  const handleNewCard=()=>{
+    setError('');
+    if(!profiles||profiles.length===0){
+      setError('Cadastre seu primeiro perfil antes de adicionar cartões.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'){
+      setError('Selecione um perfil financeiro individual no topo da página para vincular o novo cartão de crédito.');
+      return;
+    }
+    setModal('card');
+  };
+
+  const handleNewPurchase=()=>{
+    setError('');
+    if(!profiles||profiles.length===0){
+      setError('Cadastre seu primeiro perfil antes de lançar compras no cartão.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'){
+      setError('Selecione um perfil financeiro individual no topo da página para compras no cartão.');
+      return;
+    }
+    if(!cards||cards.length===0){
+      setError('Nenhum cartão cadastrado neste perfil. Cadastre seu cartão primeiro.');
+      setModal('card');
+      return;
+    }
+    setModal('purchase');
+  };
+
+  const handleNewAccount=()=>{
+    setError('');
+    if(!profiles||profiles.length===0){
+      setError('Cadastre seu primeiro perfil antes de cadastrar contas bancárias.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'){
+      setError('Selecione um perfil individual no topo da página para adicionar uma conta bancária.');
+      return;
+    }
+    setModal('account');
+  };
+
+  const handleNewCommitment=()=>{
+    setError('');
+    if(!profiles||profiles.length===0){
+      setError('Cadastre seu primeiro perfil antes de adicionar compromissos a pagar ou receber.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'){
+      setError('Selecione um perfil individual no topo da página para gerenciar compromissos.');
+      return;
+    }
+    setModal('commitment');
+  };
+
+  const handleNewGoal=()=>{
+    setError('');
+    if(!profiles||profiles.length===0){
+      setError('Cadastre seu primeiro perfil antes de criar metas financeiras.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'){
+      setError('Selecione um perfil individual no topo da página para cadastrar metas.');
+      return;
+    }
+    setModal('goal');
+  };
+
+  const handleDeleteEntry=async(id:string)=>{
+    if(!window.confirm('Deseja realmente excluir permanentemente este lançamento financeiro?')) return;
+    try{
+      await api(`/entries/${id}`,token,{},'DELETE');
+      load();
+    }catch(ex){
+      setError((ex as Error).message);
+    }
+  };
+
+  const handleEditEntry=(e:Entry)=>{
+    setEditingEntry(e);
+    setModal('edit_entry');
+  };
+
   const exportCsv=async()=>{
     try{
       const data=await api<{csv:string,totalRecords:number}>('/reports/export'+(selected==='all'?'':'?profileId='+selected),token);
@@ -712,6 +829,19 @@ function App(){
           description:desc,
           occurredAt:new Date(v('date')+'T12:00:00').toISOString()
         });
+      }else if(modal==='edit_entry'&&editingEntry){
+        const amt=Number(v('amount'));
+        if(isNaN(amt)||amt<=0) throw new Error('O valor do lançamento deve ser maior que zero (R$ 0,01).');
+        if(!v('description').trim()) throw new Error('A descrição do lançamento é obrigatória.');
+        await api(`/entries/${editingEntry.id}`,token,{
+          description:v('description').trim(),
+          amount:amt.toFixed(2),
+          type:v('type') as 'INCOME'|'EXPENSE',
+          status:v('status')||editingEntry.status,
+          accountId:v('accountId')||editingEntry.accountId,
+          occurredAt:new Date(v('date')+'T12:00:00').toISOString()
+        },'PUT');
+        setEditingEntry(null);
       }else if(modal==='transfer'){
         await api('/transfers',token,{fromProfileId:selected,fromAccountId:v('fromAccount'),toProfileId:v('toProfile'),toAccountId:v('toAccount'),amount:v('amount'),description:v('description')});
       }else if(modal==='commitment'){
@@ -757,6 +887,18 @@ function App(){
       load();
     }catch(ex){setError((ex as Error).message);}
   };
+
+  const filteredEntries = entries.filter(e => {
+    if (entryTypeFilter !== 'ALL' && e.type !== entryTypeFilter) return false;
+    if (entryStatusFilter !== 'ALL' && e.status !== entryStatusFilter) return false;
+    if (entrySearch.trim()) {
+      const q = entrySearch.toLowerCase();
+      const desc = (e.description || '').toLowerCase();
+      const acc = (e.account?.name || '').toLowerCase();
+      if (!desc.includes(q) && !acc.includes(q)) return false;
+    }
+    return true;
+  });
 
   if(!token){
     return (
@@ -1071,7 +1213,7 @@ function App(){
           {tab==='commitments'&&<section className="panel">
             <div className="panel-title">
               <h2>Contas a Pagar & Receber (Compromissos)</h2>
-              <button className="secondary" disabled={!current} onClick={()=>setModal('commitment')}>+ Novo compromisso</button>
+              <button className="secondary" onClick={handleNewCommitment}>+ Novo compromisso</button>
             </div>
             {!current?<Empty text="Selecione um perfil individual para gerenciar contas a pagar e receber."/>:commitments.length===0?<Empty text="Nenhum compromisso cadastrado para este perfil."/>:(
               <div className="table-wrap">
@@ -1105,7 +1247,7 @@ function App(){
           {tab==='goals'&&<section className="panel">
             <div className="panel-title">
               <h2>Metas Financeiras & Sonhos</h2>
-              <button className="secondary" disabled={!current} onClick={()=>setModal('goal')}><Plus size={15}/> Nova Meta</button>
+              <button className="secondary" onClick={handleNewGoal}><Plus size={15}/> Nova Meta</button>
             </div>
             {!current?<Empty text="Selecione um perfil para gerenciar metas financeiras."/>:goals.length===0?<Empty text="Nenhuma meta cadastrada."/>:(
               <div className="grid-cards">
@@ -1262,7 +1404,7 @@ function App(){
           {tab==='accounts'&&<section className="panel">
             <div className="panel-title">
               <h2>Contas financeiras</h2>
-              <button className="secondary" disabled={!current} onClick={()=>setModal('account')}>+ Nova conta</button>
+              <button className="secondary" onClick={handleNewAccount}>+ Nova conta</button>
             </div>
             {!current?<Empty text="Selecione um perfil individual para gerenciar contas."/>:accounts.length===0?<Empty text="Nenhuma conta bancária cadastrada."/>:(
               <div className="table-wrap">
@@ -1278,8 +1420,8 @@ function App(){
             <div className="panel-title">
               <h2>Cartões de Crédito e Faturas</h2>
               <div style={{display:'flex',gap:'8px'}}>
-                <button className="secondary" disabled={!current||!cards.length} onClick={()=>setModal('purchase')}><CreditCard size={15}/> Nova Compra</button>
-                <button className="secondary" disabled={!current} onClick={()=>setModal('card')}><Plus size={15}/> Novo Cartão</button>
+                <button className="secondary" onClick={handleNewPurchase}><CreditCard size={15}/> Nova Compra</button>
+                <button className="secondary" onClick={handleNewCard}><Plus size={15}/> Novo Cartão</button>
               </div>
             </div>
             {!current?<Empty text="Selecione um perfil para consultar os cartões."/>:cards.length===0?<Empty text="Nenhum cartão cadastrado."/>:(
@@ -1329,41 +1471,73 @@ function App(){
               <h2>Movimentações financeiras</h2>
               <button className="secondary" onClick={handleNewEntry}>+ Novo lançamento</button>
             </div>
-            {!current?<Empty text="Selecione um perfil individual para consultar seus lançamentos."/>:entries.length===0?<Empty text="Nenhuma movimentação registrada."/>:(
-              <div className="table-wrap">
-                <table>
-                  <thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Tipo</th><th>Status</th><th>Valor</th><th>Ações</th></tr></thead>
-                  <tbody>
-                    {entries.map(e=>(
-                      <tr key={e.id}>
-                        <td>{new Date(e.occurredAt).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
-                        <td>{e.description}</td>
-                        <td>{e.account.name}</td>
-                        <td>{({INCOME:'Receita',EXPENSE:'Despesa',TRANSFER_IN:'Transferência recebida',TRANSFER_OUT:'Transferência enviada'} as Record<string,string>)[e.type]}</td>
-                        <td>
-                          <span className="pill" style={{
-                            fontSize:'10px',
-                            background:e.status==='POSTED'?'#def3ef':e.status==='SCHEDULED'?'#fff0df':'#fff0ee',
-                            color:e.status==='POSTED'?'#11756f':e.status==='SCHEDULED'?'#df8c36':'#be6a55'
-                          }}>
-                            {e.status==='POSTED'?'Realizado':e.status==='SCHEDULED'?'Previsto':'Estornado'}
-                          </span>
-                        </td>
-                        <td className={['INCOME','TRANSFER_IN'].includes(e.type)?'positive':'negative'}>
-                          {['INCOME','TRANSFER_IN'].includes(e.type)?'+':'−'} {money(e.amount)}
-                        </td>
-                        <td>
-                          <div style={{display:'flex',gap:'6px'}}>
-                            {e.status==='SCHEDULED'&&<button className="icon-button" title="Liquidar lançamento" onClick={()=>updateStatus(e.id,'POSTED')}><CheckCircle2 size={16} color="#137e77"/></button>}
-                            {e.status==='POSTED'&&!e.reconciled&&<button className="icon-button" title="Conciliar" onClick={()=>reconcile(e.id)}><Clock size={16} color="#347bc7"/></button>}
-                            {e.status!=='VOID'&&<button className="icon-button" title="Estornar" onClick={()=>updateStatus(e.id,'VOID')}><RotateCcw size={16} color="#be6a55"/></button>}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {!current?<Empty text="Selecione um perfil individual para consultar seus lançamentos."/>:(
+              <>
+                <div style={{display:'flex',gap:'10px',marginBottom:'14px',flexWrap:'wrap',alignItems:'center'}}>
+                  <div style={{position:'relative',flex:1,minWidth:'220px'}}>
+                    <Search size={15} style={{position:'absolute',left:'12px',top:'50%',transform:'translateY(-50%)',color:'#94a3b8'}}/>
+                    <input
+                      type="text"
+                      placeholder="Buscar por descrição ou conta..."
+                      value={entrySearch}
+                      onChange={e=>setEntrySearch(e.target.value)}
+                      style={{width:'100%',padding:'8px 12px 8px 36px',borderRadius:'8px',border:'1px solid #cbd5e1',fontSize:'13px'}}
+                    />
+                  </div>
+                  <select value={entryTypeFilter} onChange={e=>setEntryTypeFilter(e.target.value)} style={{padding:'8px 12px',borderRadius:'8px',border:'1px solid #cbd5e1',fontSize:'13px'}}>
+                    <option value="ALL">Todos os Tipos</option>
+                    <option value="INCOME">Receitas</option>
+                    <option value="EXPENSE">Despesas</option>
+                    <option value="TRANSFER_IN">Transf. Recebida</option>
+                    <option value="TRANSFER_OUT">Transf. Enviada</option>
+                  </select>
+                  <select value={entryStatusFilter} onChange={e=>setEntryStatusFilter(e.target.value)} style={{padding:'8px 12px',borderRadius:'8px',border:'1px solid #cbd5e1',fontSize:'13px'}}>
+                    <option value="ALL">Todos os Status</option>
+                    <option value="POSTED">Realizados</option>
+                    <option value="SCHEDULED">Previstos</option>
+                    <option value="VOID">Estornados</option>
+                  </select>
+                </div>
+
+                {entries.length===0?<Empty text="Nenhuma movimentação registrada."/>:filteredEntries.length===0?<Empty text="Nenhum lançamento encontrado para os filtros aplicados."/>:(
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Tipo</th><th>Status</th><th>Valor</th><th>Ações</th></tr></thead>
+                      <tbody>
+                        {filteredEntries.map(e=>(
+                          <tr key={e.id}>
+                            <td>{new Date(e.occurredAt).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
+                            <td>{e.description}</td>
+                            <td>{e.account.name}</td>
+                            <td>{({INCOME:'Receita',EXPENSE:'Despesa',TRANSFER_IN:'Transferência recebida',TRANSFER_OUT:'Transferência enviada'} as Record<string,string>)[e.type]}</td>
+                            <td>
+                              <span className="pill" style={{
+                                fontSize:'10px',
+                                background:e.status==='POSTED'?'#def3ef':e.status==='SCHEDULED'?'#fff0df':'#fff0ee',
+                                color:e.status==='POSTED'?'#11756f':e.status==='SCHEDULED'?'#df8c36':'#be6a55'
+                              }}>
+                                {e.status==='POSTED'?'Realizado':e.status==='SCHEDULED'?'Previsto':'Estornado'}
+                              </span>
+                            </td>
+                            <td className={['INCOME','TRANSFER_IN'].includes(e.type)?'positive':'negative'}>
+                              {['INCOME','TRANSFER_IN'].includes(e.type)?'+':'−'} {money(e.amount)}
+                            </td>
+                            <td>
+                              <div style={{display:'flex',gap:'6px'}}>
+                                <button className="icon-button" title="Editar Lançamento" onClick={()=>handleEditEntry(e)}><Pencil size={15} color="#0d9488"/></button>
+                                {e.status==='SCHEDULED'&&<button className="icon-button" title="Liquidar lançamento" onClick={()=>updateStatus(e.id,'POSTED')}><CheckCircle2 size={16} color="#137e77"/></button>}
+                                {e.status==='POSTED'&&!e.reconciled&&<button className="icon-button" title="Conciliar" onClick={()=>reconcile(e.id)}><Clock size={16} color="#347bc7"/></button>}
+                                {e.status!=='VOID'&&<button className="icon-button" title="Estornar" onClick={()=>updateStatus(e.id,'VOID')}><RotateCcw size={16} color="#df8c36"/></button>}
+                                <button className="icon-button" title="Excluir Lançamento" onClick={()=>handleDeleteEntry(e.id)}><Trash2 size={15} color="#ef4444"/></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </section>}
 
@@ -1401,6 +1575,7 @@ function App(){
               purchase:'Nova compra no cartão',
               pay_invoice:'Pagar fatura de cartão',
               entry:'Novo Lançamento Financeiro',
+              edit_entry:'Editar Lançamento Financeiro',
               transfer:'Nova transferência',
               commitment:'Novo compromisso financeiro',
               settle_commitment:'Liquidar compromisso',
@@ -1474,6 +1649,42 @@ function App(){
               <label>Observações (opcional)
                 <textarea name="notes" rows={2} placeholder="Anotações complementares..." style={{width:'100%',padding:'8px',borderRadius:'8px',border:'1px solid #cbd5e1',fontSize:'13px'}}/>
               </label>
+            </>}
+            {modal==='edit_entry'&&editingEntry&&<>
+              <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
+                Alterando Lançamento: <b>{editingEntry.description}</b>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Tipo
+                  <select name="type" defaultValue={editingEntry.type}>
+                    <option value="EXPENSE">Despesa (Saída)</option>
+                    <option value="INCOME">Receita (Entrada)</option>
+                  </select>
+                </label>
+                <label>Status
+                  <select name="status" defaultValue={editingEntry.status}>
+                    <option value="POSTED">Realizado (Efetivado)</option>
+                    <option value="SCHEDULED">Previsto (Agendado)</option>
+                    <option value="VOID">Estornado</option>
+                  </select>
+                </label>
+              </div>
+              <label>Conta Bancária / Financeira
+                <select name="accountId" defaultValue={editingEntry.accountId||accounts[0]?.id}>
+                  {accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </label>
+              <label>Descrição
+                <input name="description" required defaultValue={editingEntry.description}/>
+              </label>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Valor em Reais (R$)
+                  <input name="amount" required type="number" min="0.01" step="0.01" defaultValue={Number(editingEntry.amount).toFixed(2)}/>
+                </label>
+                <label>Data da Movimentação
+                  <input name="date" required type="date" defaultValue={new Date(editingEntry.occurredAt).toLocaleDateString('en-CA')}/>
+                </label>
+              </div>
             </>}
             {modal==='commitment'&&<>
               <label>Tipo de compromisso<select name="type"><option value="PAYABLE">Conta a Pagar (Obrigação)</option><option value="RECEIVABLE">Conta a Receber (Crédito)</option></select></label>

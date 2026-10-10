@@ -619,6 +619,25 @@ function App(){
     }
   };
 
+  const handleNewEntry=()=>{
+    setError('');
+    if(!profiles||profiles.length===0){
+      setError('Cadastre seu primeiro perfil financeiro antes de realizar um lançamento.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'){
+      setError('A Visão Consolidada reúne múltiplos perfis. Selecione um perfil financeiro individual no seletor "Perfil Ativo" (no topo da tela) para vincular este lançamento.');
+      return;
+    }
+    if(!accounts||accounts.length===0){
+      setError(`O perfil "${current?.name||'selecionado'}" ainda não possui contas bancárias cadastradas. Cadastre a primeira conta para este perfil.`);
+      setModal('account');
+      return;
+    }
+    setModal('entry');
+  };
+
   const exportCsv=async()=>{
     try{
       const data=await api<{csv:string,totalRecords:number}>('/reports/export'+(selected==='all'?'':'?profileId='+selected),token);
@@ -662,7 +681,30 @@ function App(){
       }else if(modal==='pay_invoice'){
         await api(`/cards/invoices/${v('invoiceId')}/pay`,token,{accountId:v('accountId')});
       }else if(modal==='entry'){
-        await api('/entries',token,{profileId:selected,accountId:v('accountId'),type:v('type'),status:v('status')||'POSTED',amount:v('amount'),description:v('description'),occurredAt:new Date(v('date')+'T12:00:00').toISOString()});
+        const amt=Number(v('amount'));
+        if(isNaN(amt)||amt<=0){
+          throw new Error('O valor do lançamento deve ser maior que zero (R$ 0,01).');
+        }
+        if(!v('description').trim()){
+          throw new Error('A descrição do lançamento é obrigatória.');
+        }
+        if(!v('accountId')){
+          throw new Error('Selecione uma conta bancária para o lançamento.');
+        }
+        const notes=v('notes')?.trim();
+        const cat=v('category')?.trim();
+        let desc=v('description').trim();
+        if(cat) desc += ` [${cat}]`;
+        if(notes) desc += ` — ${notes}`;
+        await api('/entries',token,{
+          profileId:selected,
+          accountId:v('accountId'),
+          type:v('type') as 'INCOME'|'EXPENSE',
+          status:v('status')||'POSTED',
+          amount:amt.toFixed(2),
+          description:desc,
+          occurredAt:new Date(v('date')+'T12:00:00').toISOString()
+        });
       }else if(modal==='transfer'){
         await api('/transfers',token,{fromProfileId:selected,fromAccountId:v('fromAccount'),toProfileId:v('toProfile'),toAccountId:v('toAccount'),amount:v('amount'),description:v('description')});
       }else if(modal==='commitment'){
@@ -814,7 +856,7 @@ function App(){
               <span className="pill" style={{background:'#dcfce7',color:'#166534'}} title="Conectado ao PostgreSQL"><CheckCircle2 size={12}/> PostgreSQL Ativo</span>
             )}
             <button className="secondary" onClick={exportCsv} title="Exportar Extrato em CSV"><FileSpreadsheet size={16}/> {!collapsed&&<span>Exportar CSV</span>}</button>
-            <button className="primary" onClick={()=>setModal('entry')} disabled={!current||!accounts.length}><Plus size={16}/> Novo Lançamento</button>
+            <button className="primary" onClick={handleNewEntry} title="Novo Lançamento Financeiro"><Plus size={16}/> Novo Lançamento</button>
           </div>
         </header>
 
@@ -1276,7 +1318,7 @@ function App(){
           {tab==='entries'&&<section className="panel">
             <div className="panel-title">
               <h2>Movimentações financeiras</h2>
-              <button className="secondary" disabled={!current||!accounts.length} onClick={()=>setModal('entry')}>+ Novo lançamento</button>
+              <button className="secondary" onClick={handleNewEntry}>+ Novo lançamento</button>
             </div>
             {!current?<Empty text="Selecione um perfil individual para consultar seus lançamentos."/>:entries.length===0?<Empty text="Nenhuma movimentação registrada."/>:(
               <div className="table-wrap">
@@ -1349,7 +1391,7 @@ function App(){
               card:'Novo cartão de crédito',
               purchase:'Nova compra no cartão',
               pay_invoice:'Pagar fatura de cartão',
-              entry:'Registrar movimentação',
+              entry:'Novo Lançamento Financeiro',
               transfer:'Nova transferência',
               commitment:'Novo compromisso financeiro',
               settle_commitment:'Liquidar compromisso',
@@ -1384,12 +1426,45 @@ function App(){
               <label>Conta de débito<select name="accountId" required>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
             </>}
             {modal==='entry'&&<>
-              <label>Tipo<select name="type"><option value="EXPENSE">Despesa</option><option value="INCOME">Receita</option></select></label>
-              <label>Status<select name="status"><option value="POSTED">Realizado (Efetivado)</option><option value="SCHEDULED">Previsto (Agendado)</option></select></label>
-              <label>Conta<select name="accountId" required>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
-              <label>Descrição<input name="description" required placeholder="Descrição do lançamento"/></label>
-              <label>Valor (R$)<input name="amount" required type="number" min="0.01" step="0.01"/></label>
-              <label>Data<input name="date" required type="date" defaultValue={new Date().toLocaleDateString('en-CA')}/></label>
+              <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
+                Perfil Vinculado: <b>{current?.name || 'Individual'}</b>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Tipo de Movimentação
+                  <select name="type">
+                    <option value="EXPENSE">Despesa (-)</option>
+                    <option value="INCOME">Receita (+)</option>
+                  </select>
+                </label>
+                <label>Status
+                  <select name="status">
+                    <option value="POSTED">Realizado (Efetivado)</option>
+                    <option value="SCHEDULED">Previsto (Agendado)</option>
+                  </select>
+                </label>
+              </div>
+              <label>Conta Bancária / Financeira
+                <select name="accountId" required>
+                  {accounts.map(a=><option key={a.id} value={a.id}>{a.name} (Saldo: {money(a.openingBalance)})</option>)}
+                </select>
+              </label>
+              <label>Descrição
+                <input name="description" required placeholder="Ex.: Supermercado, Salário, Energia..."/>
+              </label>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Valor em Reais (R$)
+                  <input name="amount" required type="number" min="0.01" step="0.01" placeholder="0.00"/>
+                </label>
+                <label>Data da Movimentação
+                  <input name="date" required type="date" defaultValue={new Date().toLocaleDateString('en-CA')}/>
+                </label>
+              </div>
+              <label>Categoria (opcional)
+                <input name="category" placeholder="Ex.: Alimentação, Moradia, Transporte, Lazer..."/>
+              </label>
+              <label>Observações (opcional)
+                <textarea name="notes" rows={2} placeholder="Anotações complementares..." style={{width:'100%',padding:'8px',borderRadius:'8px',border:'1px solid #cbd5e1',fontSize:'13px'}}/>
+              </label>
             </>}
             {modal==='commitment'&&<>
               <label>Tipo de compromisso<select name="type"><option value="PAYABLE">Conta a Pagar (Obrigação)</option><option value="RECEIVABLE">Conta a Receber (Crédito)</option></select></label>

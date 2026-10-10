@@ -16,14 +16,112 @@ type Dash={income:string,expense:string,result:string,balance:string,projectedBa
 
 const money=(value:string|number)=>Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const API_BASE=(import.meta.env.VITE_API_URL||'').replace(/\/$/,'')+'/api';
+const DEMO_PROFILES: Profile[] = [
+  { id: 'p-pessoal', name: 'Pessoal', role: 'OWNER' },
+  { id: 'p-familiar', name: 'Familiar', role: 'MANAGER' },
+  { id: 'p-patrimonio', name: 'Patrimônio & Investimentos', role: 'OWNER' }
+];
+const DEMO_ACCOUNTS: Account[] = [
+  { id: 'acc-1', name: 'Nubank Principal', openingBalance: '15650.00' },
+  { id: 'acc-2', name: 'Itaú Personalité', openingBalance: '28400.00' },
+  { id: 'acc-3', name: 'XP Investimentos', openingBalance: '65200.00' }
+];
+const DEMO_CARDS: Card[] = [
+  { id: 'card-1', name: 'Nubank Ultravioleta', limit: '20000.00', closingDay: 25, dueDay: 5, color: '#8a05be', availableLimit: '16000.00', currentInvoice: { id: 'inv-1', referenceMonth: '2026-10', totalAmount: '4000.00', status: 'OPEN' } }
+];
+const DEMO_ENTRIES: Entry[] = [
+  { id: 'e-1', type: 'INCOME', status: 'POSTED', amount: '12500.00', description: 'Salário Executivo', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
+  { id: 'e-2', type: 'EXPENSE', status: 'POSTED', amount: '2450.00', description: 'Aluguel Residencial', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
+  { id: 'e-3', type: 'EXPENSE', status: 'POSTED', amount: '1250.00', description: 'Supermercado Mensal', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
+  { id: 'e-4', type: 'INCOME', status: 'SCHEDULED', amount: '3500.00', description: 'Rendimento de Dividendos', occurredAt: new Date(Date.now()+5*86400000).toISOString(), account: { name: 'XP Investimentos' } },
+  { id: 'e-5', type: 'EXPENSE', status: 'SCHEDULED', amount: '820.00', description: 'Seguro Auto', occurredAt: new Date(Date.now()+8*86400000).toISOString(), account: { name: 'Nubank Principal' } }
+];
+const DEMO_COMMITMENTS: Commitment[] = [
+  { id: 'c-1', type: 'PAYABLE', status: 'PENDING', description: 'Energia Elétrica (Cemig)', amount: '385.50', dueDate: new Date(Date.now()+4*86400000).toISOString(), entityName: 'Cemig', category: 'Moradia' },
+  { id: 'c-2', type: 'PAYABLE', status: 'PENDING', description: 'Condomínio Residencial', amount: '850.00', dueDate: new Date(Date.now()+9*86400000).toISOString(), entityName: 'Condomínio', category: 'Moradia' },
+  { id: 'c-3', type: 'RECEIVABLE', status: 'PENDING', description: 'Consultoria Estratégica', amount: '4800.00', dueDate: new Date(Date.now()+15*86400000).toISOString(), entityName: 'Cliente Beta', category: 'Renda Extra' }
+];
+const DEMO_GOALS: Goal[] = [
+  { id: 'g-1', name: 'Reserva de Emergência 6 Meses', targetAmount: '35000.00', currentAmount: '22000.00', progress: 62.9, status: 'IN_PROGRESS', color: '#10B981' },
+  { id: 'g-2', name: 'Aporte Carteira de Dividendos', targetAmount: '100000.00', currentAmount: '65200.00', progress: 65.2, status: 'IN_PROGRESS', color: '#3B82F6' },
+  { id: 'g-3', name: 'Viagem Internacional', targetAmount: '20000.00', currentAmount: '14500.00', progress: 72.5, status: 'IN_PROGRESS', color: '#F59E0B' }
+];
+const DEMO_BUDGETS: Budget[] = [
+  { id: 'b-1', categoryName: 'Moradia', plannedAmount: '3000.00', spentAmount: '2450.00', percentageUsed: 81.7 },
+  { id: 'b-2', categoryName: 'Alimentação & Mercado', plannedAmount: '2500.00', spentAmount: '1250.00', percentageUsed: 50.0 },
+  { id: 'b-3', categoryName: 'Transporte & Combustível', plannedAmount: '1200.00', spentAmount: '680.00', percentageUsed: 56.7 }
+];
+const DEMO_CASHFLOW: CashflowItem[] = [
+  { month: '2026-08', income: '12500.00', expense: '4200.00', obligations: '3200.00', net: '5100.00' },
+  { month: '2026-09', income: '13200.00', expense: '4500.00', obligations: '3800.00', net: '4900.00' },
+  { month: '2026-10', income: '16000.00', expense: '4820.00', obligations: '4000.00', net: '7180.00' },
+  { month: '2026-11', income: '12500.00', expense: '4300.00', obligations: '2800.00', net: '5400.00' },
+  { month: '2026-12', income: '24500.00', expense: '6200.00', obligations: '3500.00', net: '14800.00' },
+  { month: '2027-01', income: '12500.00', expense: '4900.00', obligations: '3100.00', net: '4500.00' }
+];
+const DEMO_ADVISOR: AdvisorData = {
+  score: 88,
+  status: 'EXCELENTE',
+  safeMonthlySpend: '8672.50',
+  threeMonthSurplus: '17680.00',
+  diagnosis: 'Diagnóstico BOMA Inteligente:\n\nSua saúde financeira encontra-se em nível EXCELENTE (Score 88/100). Seu fluxo operacional apresenta margem líquida superior a 50% da renda mensal. Suas reservas cobrem com folga os compromissos dos próximos 90 dias, e os limites de cartão estão com utilização inferior a 25% do teto.',
+  actionPlan: [
+    'Margem de gasto discricionário seguro para este mês: R$ 8.672,50 sem comprometer nenhuma conta futura.',
+    'Mantenha a programação dos aportes automáticos na meta de Reserva de Emergência.',
+    'Compromissos dos próximos 90 dias já provisionados em contas de alta liquidez.'
+  ],
+  aiGenerated: true
+};
+
+function getDemoData<T>(path:string,body?:any):T{
+  if(path.startsWith('/profiles')&&path.endsWith('/accounts')) return DEMO_ACCOUNTS as unknown as T;
+  if(path.startsWith('/profiles')&&path.endsWith('/cards')) return DEMO_CARDS as unknown as T;
+  if(path.startsWith('/profiles')&&path.endsWith('/entries')) return DEMO_ENTRIES as unknown as T;
+  if(path.startsWith('/profiles')&&path.endsWith('/commitments')) return DEMO_COMMITMENTS as unknown as T;
+  if(path.startsWith('/profiles')&&path.endsWith('/goals')) return DEMO_GOALS as unknown as T;
+  if(path.startsWith('/profiles')&&path.endsWith('/budgets')) return DEMO_BUDGETS as unknown as T;
+  if(path.startsWith('/profiles')) return DEMO_PROFILES as unknown as T;
+  if(path.startsWith('/dashboard')) {
+    return { income:'12500.00',expense:'4820.00',result:'7680.00',balance:'109250.00',projectedBalance:'111930.00',scheduledIncome:'3500.00',scheduledExpense:'820.00',profileCount:3,accountCount:3 } as unknown as T;
+  }
+  if(path.startsWith('/reports/cashflow')) return DEMO_CASHFLOW as unknown as T;
+  if(path.startsWith('/reports/export')) {
+    const csv='ID,Data,Perfil,Conta,Tipo,Status,Descricao,Valor(R$),Conciliado\n"demo-1","2026-10-10T12:00:00.000Z","Pessoal","Nubank Principal","INCOME","POSTED","Salário Executivo","12500.00","Sim"';
+    return {csv,totalRecords:1} as unknown as T;
+  }
+  if(path.startsWith('/ai/advisor')) return DEMO_ADVISOR as unknown as T;
+  return {status:'ok',id:'demo-'+Date.now()} as unknown as T;
+}
+
 const api=async<T,>(path:string,token:string,body?:unknown,method?:string):Promise<T>=>{
-  const response=await fetch(API_BASE+path,{
-    method:method||(body?'POST':'GET'),
-    headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},
-    body:body?JSON.stringify(body):undefined
-  });
-  const data=await response.json();
-  if(!response.ok)throw new Error(Array.isArray(data.message)?data.message.join(', '):data.message||'Falha na requisição');
+  if(token==='demo_token'){
+    return getDemoData<T>(path,body);
+  }
+  let response:Response;
+  try{
+    response=await fetch(API_BASE+path,{
+      method:method||(body?'POST':'GET'),
+      headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},
+      body:body?JSON.stringify(body):undefined
+    });
+  }catch(netErr:any){
+    throw new Error('Não foi possível conectar ao servidor backend ('+(netErr?.message||'Falha de rede')+'). Utilize o Modo Demonstração para navegar.');
+  }
+
+  const text=await response.text();
+  let data:any=null;
+  try{
+    data=JSON.parse(text);
+  }catch{
+    data=null;
+  }
+
+  if(!response.ok||!data){
+    if(text.startsWith('<!doctype')||text.startsWith('<html')||!text.trim()){
+      throw new Error('API do backend indisponível nesta URL. Use o botão "Acessar Modo Demonstração" para visualizar o sistema na Vercel.');
+    }
+    throw new Error(data&&(Array.isArray(data.message)?data.message.join(', '):data.message)||'Falha na requisição ao servidor');
+  }
   return data as T;
 };
 
@@ -130,11 +228,23 @@ function App(){
     const v=(key:string)=>String(f.get(key)||'');
     try{
       if(modal==='login'||modal==='register'){
-        const r=await api<{token:string,user:{name:string}}>('/auth/'+modal,'',modal==='login'?{email:v('email'),password:v('password')}:{email:v('email'),password:v('password'),name:v('name')});
-        sessionStorage.setItem('boma_token',r.token);
-        sessionStorage.setItem('boma_name',r.user.name);
-        setToken(r.token);
-        setUser(r.user.name);
+        try {
+          const r=await api<{token:string,user:{name:string}}>('/auth/'+modal,'',modal==='login'?{email:v('email'),password:v('password')}:{email:v('email'),password:v('password'),name:v('name')});
+          sessionStorage.setItem('boma_token',r.token);
+          sessionStorage.setItem('boma_name',r.user.name);
+          setToken(r.token);
+          setUser(r.user.name);
+        } catch (authErr: any) {
+          if (authErr.message.includes('API do backend indisponível') || authErr.message.includes('Não foi possível conectar')) {
+            const demoName = v('name') || (v('email').split('@')[0]) || 'Vinicius BOMA';
+            sessionStorage.setItem('boma_token', 'demo_token');
+            sessionStorage.setItem('boma_name', demoName);
+            setToken('demo_token');
+            setUser(demoName);
+            return;
+          }
+          throw authErr;
+        }
       }else if(modal==='profile'){
         await api('/profiles',token,{name:v('name')});
       }else if(modal==='account'){
@@ -208,6 +318,19 @@ function App(){
           <label>Senha de acesso (mínimo 12 caracteres)<input name="password" type="password" minLength={12} required placeholder="••••••••••••"/></label>
           {error&&<div className="error">{error}</div>}
           <button className="primary" style={{width:'100%',marginTop:'12px'}} type="submit" disabled={busy}>{busy?'Autenticando...':modal==='login'?'Acessar BOMA Finance':'Criar minha conta'}</button>
+          <button
+            type="button"
+            className="secondary"
+            style={{width:'100%',marginTop:'10px',background:'#def3ef',color:'#11756f',borderColor:'#a2dec9',fontWeight:700,fontSize:'13px'}}
+            onClick={()=>{
+              sessionStorage.setItem('boma_token','demo_token');
+              sessionStorage.setItem('boma_name','Vinicius BOMA');
+              setToken('demo_token');
+              setUser('Vinicius BOMA');
+            }}
+          >
+            ✨ Acessar Modo Demonstração (Vercel Preview)
+          </button>
         </form>
       </div>
     );

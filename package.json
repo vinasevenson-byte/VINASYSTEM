@@ -42,5 +42,8 @@
     "@nestjs/core@10.4.22": true,
     "esbuild@0.25.12": true,
     "esbuild@0.28.2": true
+  },
+  "dependencies": {
+    "@vercel/global-config": "^1.5.1"
   }
 }

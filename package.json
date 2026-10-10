@@ -1,0 +1,27 @@
+{
+  "name": "boma-finance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev": "npm run dev:web",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
+    "build": "npm run build:web"
+  },
+  "keywords": [
+    "finance",
+    "personal-finance",
+    "multi-profile",
+    "dashboard",
+    "banking"
+  ],
+  "author": "BOMA Finance Team",
+  "license": "MIT"
+}

@@ -555,6 +555,13 @@ function App(){
   const [busy,setBusy]=useState(false);
   const [collapsed,setCollapsed]=useState(false);
   const [refresh,setRefresh]=useState(0);
+  const [cloudGreeting,setCloudGreeting]=useState('');
+
+  useEffect(()=>{
+    fetch('/api/welcome').then(r=>r.json()).then(d=>{
+      if(d?.greeting && d?.greeting!=='Bem-vindo ao VINA FINACE!') setCloudGreeting(d.greeting);
+    }).catch(()=>{});
+  },[]);
 
   const current=profiles.find(p=>p.id===selected);
   const load=()=>setRefresh(v=>v+1);
@@ -760,6 +767,7 @@ function App(){
           </div>
           <h1>VINA FINACE</h1>
           <p>ERP de Gestão Financeira Pessoal e Familiar</p>
+          {cloudGreeting&&<div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'8px',padding:'6px 10px',fontSize:'12px',color:'#166534',marginBottom:'12px',textAlign:'center'}}>✨ {cloudGreeting}</div>}
           <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
             <button className={modal==='login'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('login')}>Entrar</button>
             <button className={modal==='register'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('register')}>Cadastre-se</button>
@@ -861,6 +869,7 @@ function App(){
         </header>
 
         {error&&<div className="error" style={{margin:'16px 32px 0'}}>{error}</div>}
+        {cloudGreeting&&<div style={{margin:'16px 32px 0',padding:'10px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'8px',color:'#15803d',display:'flex',alignItems:'center',gap:'8px',fontSize:'13px'}}><Sparkles size={16}/><span><strong>Vercel Global Config:</strong> {cloudGreeting}</span></div>}
 
         <div className="page">
           {tab==='dashboard'&&dash&&<>

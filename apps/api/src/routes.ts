@@ -67,6 +67,15 @@ class AdvisorQueryDto {
  private positive(v:string){const d=new Decimal(v);if(!d.isFinite()||d.lte(0))throw new BadRequestException('Valor deve ser positivo');return d;}
  private async member(userId:string,profileId:string,write=false){const m=await this.db.membership.findUnique({where:{userId_profileId:{userId,profileId}}});if(!m||write&&m.role==='VIEWER')throw new ForbiddenException('Sem permissão no perfil');return m;}
  @Get('health') health(){return {status:'ok'};}
+ @Get('welcome') async welcome(){
+   try {
+     const { get } = await import('@vercel/global-config');
+     const greeting = await get('greeting');
+     return { success: true, greeting: greeting || 'Bem-vindo ao VINA FINACE!', source: greeting ? 'vinasystem-global-config' : 'default' };
+   } catch (e: any) {
+     return { success: true, greeting: 'Bem-vindo ao VINA FINACE!', source: 'fallback', message: e?.message || 'Config pending' };
+   }
+ }
  @Get('audit') async auditLogs(@Req() req:any){return this.audit.getRecent(req.userId);}
  @Post('auth/register') async register(@Req() req:any,@Body() b:RegisterDto){const ip=req.ip||req.headers['x-forwarded-for']||'127.0.0.1';this.rateLimiter.check(`register:${ip}`,10,60000);const raw=b.email.trim();const email=raw.includes('@')?raw.toLowerCase():`${raw.toLowerCase()}@vina.com`;if(await this.db.user.findUnique({where:{email}}))throw new ConflictException('E-mail já cadastrado');const user=await this.db.user.create({data:{email,name:b.name,passwordHash:await bcrypt.hash(b.password,12)}});await this.audit.log({userId:user.id,action:'AUTH_REGISTER',entity:'User',entityId:user.id,ipAddress:String(ip)});return {token:this.sign(user.id),user:{id:user.id,name:user.name,email:user.email}};}
  @Post('auth/login') async login(@Req() req:any,@Body() b:LoginDto){const ip=req.ip||req.headers['x-forwarded-for']||'127.0.0.1';const loginInput=b.email.trim();const loginLower=loginInput.toLowerCase();this.rateLimiter.check(`login:${ip}:${loginLower}`,15,60000);const user=await this.db.user.findFirst({where:{OR:[{email:loginLower},{email:`${loginLower}@vina.com`},{email:`${loginLower}@finance.com`},{name:{equals:loginInput,mode:'insensitive'}}]}});const isPassValid=user&&((await bcrypt.compare(b.password,user.passwordHash))||(await bcrypt.compare(b.password.toUpperCase(),user.passwordHash))||(await bcrypt.compare(b.password.toLowerCase(),user.passwordHash)));if(!user||!isPassValid){await this.audit.log({action:'AUTH_LOGIN_FAILED',entity:'User',details:{email:loginInput},ipAddress:String(ip)});throw new ForbiddenException('Credenciais inválidas');}this.rateLimiter.reset(`login:${ip}:${loginLower}`);await this.audit.log({userId:user.id,action:'AUTH_LOGIN_SUCCESS',entity:'User',entityId:user.id,ipAddress:String(ip)});return {token:this.sign(user.id),user:{id:user.id,name:user.name,email:user.email}};}

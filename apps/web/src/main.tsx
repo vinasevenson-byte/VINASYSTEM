@@ -246,7 +246,8 @@ function App(){
           throw authErr;
         }
       }else if(modal==='profile'){
-        await api('/profiles',token,{name:v('name')});
+        const created=await api<{id:string}>('/profiles',token,{name:v('name')});
+        if(created?.id)setSelected(created.id);
       }else if(modal==='account'){
         await api(`/profiles/${selected}/accounts`,token,{name:v('name'),openingBalance:v('balance')});
       }else if(modal==='card'){
@@ -376,6 +377,12 @@ function App(){
       </aside>
 
       <main className="content">
+        {token==='demo_token'&&(
+          <div className="demo-banner">
+            <span>⚠️ <b>Aviso de Demonstração (Vercel Preview):</b> O backend Node.js e banco PostgreSQL não estão conectados online neste endereço. Registros adicionados aqui não são salvos em banco persistente. Conecte a API real para persistência.</span>
+            <button onClick={logout}>Sair da Demonstração</button>
+          </div>
+        )}
         <header className="topbar">
           <div className="topbar-left">
             <button className="icon-button" onClick={()=>setCollapsed(!collapsed)} title="Recolher/Expandir menu"><Menu size={18}/></button>

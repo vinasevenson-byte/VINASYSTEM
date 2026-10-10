@@ -311,8 +311,11 @@ function App(){
           </div>
           <form onSubmit={submit}>
             {modal==='register'&&<label>Seu nome completo<input name="name" required placeholder="Ex.: Vinícius"/></label>}
-            <label>E-mail<input name="email" type="email" required placeholder="seu@email.com"/></label>
-            <label>Senha de acesso (mínimo 12 caracteres)<input name="password" type="password" minLength={12} required placeholder="••••••••••••"/></label>
+            <label>Usuário ou E-mail<input name="email" type="text" defaultValue={modal==='login'?'VINICIUS':''} required placeholder="VINICIUS ou seu@email.com"/></label>
+            <label>Senha de acesso<input name="password" type="password" minLength={6} defaultValue={modal==='login'?'VINA123':''} required placeholder="••••••••••••"/></label>
+            <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
+              <strong>🔑 Acesso Padrão:</strong> Usuário <code>VINICIUS</code> · Senha <code>VINA123</code>
+            </div>
             {error&&<div className="error">{error}</div>}
             <button className="primary" style={{width:'100%',marginTop:'8px',padding:'12px'}} type="submit" disabled={busy}>{busy?'Autenticando...':modal==='login'?'Acessar VINA FINACE':'Criar minha conta'}</button>
             <button

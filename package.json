@@ -15,6 +15,7 @@
     "build:web": "npm run build --workspace=@boma/web",
     "build:api": "npm run build --workspace=@boma/api",
     "build": "npm run build:web",
+    "seed": "node scripts/seed-rule.cjs",
     "db:start": "node scripts/db.cjs",
     "db:generate": "npm run --workspace=@boma/api db:generate",
     "db:push": "npm run --workspace=@boma/api db:push",
@@ -27,7 +28,7 @@
     "dashboard",
     "banking"
   ],
-  "author": "BOMA Finance Team",
+  "author": "VINA FINACE Team",
   "license": "MIT",
   "devDependencies": {
     "embedded-postgres": "^18.4.0-beta.17"

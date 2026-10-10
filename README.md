@@ -16,6 +16,18 @@ A interface web está publicada e acessível em:
 
 ---
 
+## 🔑 Regra de Acesso e Credenciais Padrão
+
+O sistema possui como convenção e regra oficial de acesso administrativo:
+
+| Campo | Valor Padrão | Observações |
+| :--- | :--- | :--- |
+| **Login / Usuário** | `VINICIUS` | Aceita `VINICIUS`, `vinicius` ou `vinicius@vina.com` |
+| **Senha** | `VINA123` | Criptografada com Bcrypt (12 rounds) no PostgreSQL |
+| **Perfil Padrão** | `Pessoal` e `Familiar` | Acesso total como Proprietário (`OWNER`) |
+
+---
+
 ## 🏛️ Visão do Sistema
 
 O **VINA FINACE** é um ERP de gestão financeira pessoal e familiar de alta fidelidade desenhado sob o conceito de bancos digitais modernos (referência visual *Finlytics* / *Fiscaly*). 

@@ -10,6 +10,8 @@ import {
   Calendar,
   Sparkles,
   ArrowRightLeft,
+  User,
+  ShieldCheck,
 } from 'lucide-react';
 import { useFinance } from '../../contexts/FinanceContext';
 import { FinancialEngine } from '@boma/shared';
@@ -18,12 +20,14 @@ interface TopHeaderProps {
   onOpenMobileMenu: () => void;
   onOpenNewTransaction: () => void;
   onOpenTransferModal: () => void;
+  onOpenAuthModal?: () => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenMobileMenu,
   onOpenNewTransaction,
   onOpenTransferModal,
+  onOpenAuthModal,
 }) => {
   const {
     profiles,
@@ -38,7 +42,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   } = useFinance();
 
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
-  const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -46,19 +49,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setProfileDropdownOpen(false);
-        setPeriodDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const months = [
-    { num: 9, label: 'Setembro 2026' },
-    { num: 10, label: 'Outubro 2026' },
-    { num: 11, label: 'Novembro 2026' },
-    { num: 12, label: 'Dezembro 2026' },
-  ];
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-20 px-4 sm:px-8 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -177,7 +172,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           )}
         </div>
 
-        {/* Period Selector (Outubro 2026) */}
+        {/* Period Indicator */}
         <div className="hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-100/80 text-xs font-semibold text-slate-700 border border-slate-200/60">
           <Calendar className="w-3.5 h-3.5 text-slate-500" />
           <span>Outubro 2026</span>
@@ -185,7 +180,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Actions, Notifications and New Transaction Button */}
+      {/* Right: Actions, Notifications and User Profile */}
       <div className="flex items-center space-x-2.5 sm:space-x-4">
         {/* Quick Transfer Button */}
         <button
@@ -213,6 +208,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         >
           <Plus className="w-4 h-4 stroke-[2.5]" />
           <span>Novo Lançamento</span>
+        </button>
+
+        {/* User Profile / Auth Button */}
+        <button
+          onClick={onOpenAuthModal}
+          title="Minha Conta, Permissões e Autenticação"
+          className="flex items-center space-x-2 pl-2 pr-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all"
+        >
+          <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
+            VP
+          </div>
+          <span className="hidden xl:inline text-xs font-bold text-slate-800">Admin</span>
         </button>
       </div>
     </header>

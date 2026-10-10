@@ -13,7 +13,9 @@
     "dev": "npm run dev:web",
     "build:web": "npm run build --workspace=apps/web",
     "build:api": "npm run build --workspace=apps/api",
-    "build": "npm run build:web"
+    "build": "npm run build:web",
+    "db:generate": "npm run prisma:generate --workspace=@boma/database",
+    "db:migrate": "npm run prisma:migrate --workspace=@boma/database"
   },
   "keywords": [
     "finance",

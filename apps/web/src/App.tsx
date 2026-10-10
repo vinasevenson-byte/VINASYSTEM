@@ -16,6 +16,8 @@ import { ReportsView } from './views/ReportsView';
 import { AdminView } from './views/AdminView';
 import { NewTransactionModal } from './components/modals/NewTransactionModal';
 import { TransferModal } from './components/modals/TransferModal';
+import { AuthModal } from './components/modals/AuthModal';
+import { UserRole } from '@boma/shared';
 
 const MainLayout: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<NavItem>('dashboard');
@@ -24,6 +26,21 @@ const MainLayout: React.FC = () => {
 
   const [newTxModalOpen, setNewTxModalOpen] = useState<boolean>(false);
   const [transferModalOpen, setTransferModalOpen] = useState<boolean>(false);
+  const [authModalOpen, setAuthModalOpen] = useState<boolean>(false);
+
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    mfaEnabled: boolean;
+  }>({
+    id: 'usr-1',
+    name: 'Vinicius P.',
+    email: 'vinicius@bomafinance.com',
+    role: 'ADMIN',
+    mfaEnabled: true,
+  });
 
   const { setActiveProfileId } = useFinance();
 
@@ -88,6 +105,7 @@ const MainLayout: React.FC = () => {
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           onOpenNewTransaction={() => setNewTxModalOpen(true)}
           onOpenTransferModal={() => setTransferModalOpen(true)}
+          onOpenAuthModal={() => setAuthModalOpen(true)}
         />
 
         {/* Scrollable View Container */}
@@ -107,6 +125,13 @@ const MainLayout: React.FC = () => {
       <TransferModal
         isOpen={transferModalOpen}
         onClose={() => setTransferModalOpen(false)}
+      />
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        currentUser={currentUser}
+        onUpdateRole={(newRole) => setCurrentUser((prev) => ({ ...prev, role: newRole }))}
       />
     </div>
   );

@@ -81,4 +81,4 @@ build/
 *.sw?
 Thumbs.db
 data/
-
+*.zip

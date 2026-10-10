@@ -305,7 +305,7 @@ function App(){
 
   if(!token){
     return (
-      <div style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'radial-gradient(ellipse at 80% 20%,#ccfbf1 0%,#f8fafc 50%,#e2e8f0 100%)',padding:'20px'}}>
+      <div className="auth-wrapper">
         <div className="login-card">
           <div style={{display:'flex',justifyContent:'center',marginBottom:'14px'}}>
             <div className="brand-icon" style={{width:'48px',height:'48px',fontSize:'22px'}}>B</div>
@@ -346,34 +346,39 @@ function App(){
       <aside className={`sidebar ${collapsed?'collapsed':''}`}>
         <div className="brand">
           <div className="brand-icon">B</div>
-          {!collapsed&&<div><h1>BOMA Finance</h1><span>v1.2 · Operacional</span></div>}
+          {!collapsed&&<div><h1>BOMA Finance</h1><span>v1.3 · Finlytics Pro</span></div>}
         </div>
 
-        <nav>
-          <button className={tab==='dashboard'?'active':''} onClick={()=>setTab('dashboard')} title="Dashboard Executivo"><LayoutDashboard size={18}/>{!collapsed&&<span>Dashboard</span>}</button>
-          <button className={tab==='entries'?'active':''} onClick={()=>setTab('entries')} title="Central de Lançamentos"><ReceiptText size={18}/>{!collapsed&&<span>Lançamentos</span>}</button>
-          <button className={tab==='accounts'?'active':''} onClick={()=>setTab('accounts')} title="Contas Bancárias"><Landmark size={18}/>{!collapsed&&<span>Contas Bancárias</span>}</button>
-          <button className={tab==='cards'?'active':''} onClick={()=>setTab('cards')} title="Cartões de Crédito"><CreditCard size={18}/>{!collapsed&&<span>Cartões de Crédito</span>}</button>
-          <button className={tab==='commitments'?'active':''} onClick={()=>setTab('commitments')} title="Contas a Pagar & Receber"><Calendar size={18}/>{!collapsed&&<span>Compromissos</span>}</button>
-          <button className={tab==='goals'?'active':''} onClick={()=>setTab('goals')} title="Metas Financeiras"><Target size={18}/>{!collapsed&&<span>Metas Financeiras</span>}</button>
-          <button className={tab==='budgets'?'active':''} onClick={()=>setTab('budgets')} title="Orçamentos"><PieChart size={18}/>{!collapsed&&<span>Orçamentos</span>}</button>
-          <button className={tab==='reports'?'active':''} onClick={()=>setTab('reports')} title="Fluxo de Caixa & Relatórios"><TrendingUp size={18}/>{!collapsed&&<span>Fluxo & Relatórios</span>}</button>
-          <button className={tab==='advisor'?'active':''} onClick={()=>setTab('advisor')} title="BOMA Inteligente (IA)"><Sparkles size={18}/>{!collapsed&&<span>BOMA Inteligente (IA)</span>}</button>
-          <button className={tab==='transfers'?'active':''} onClick={()=>setTab('transfers')} title="Transferências Internas"><ArrowLeftRight size={18}/>{!collapsed&&<span>Transferências</span>}</button>
-          <button className={tab==='profiles'?'active':''} onClick={()=>setTab('profiles')} title="Gestão de Perfis"><Users size={18}/>{!collapsed&&<span>Perfis</span>}</button>
-        </nav>
+        <div className="sidebar-scroll">
+          {!collapsed&&<div className="nav-section-title">Menu Principal</div>}
+          <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} title="Dashboard Executivo"><LayoutDashboard size={18}/>{!collapsed&&<span>Dashboard</span>}</button>
+          <button className={`nav-item ${tab==='entries'?'active':''}`} onClick={()=>setTab('entries')} title="Central de Lançamentos"><ReceiptText size={18}/>{!collapsed&&<span>Lançamentos</span>}</button>
+          <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>setTab('accounts')} title="Contas Bancárias"><Landmark size={18}/>{!collapsed&&<span>Contas Bancárias</span>}</button>
+          <button className={`nav-item ${tab==='cards'?'active':''}`} onClick={()=>setTab('cards')} title="Cartões de Crédito"><CreditCard size={18}/>{!collapsed&&<span>Cartões de Crédito</span>}</button>
+          <button className={`nav-item ${tab==='commitments'?'active':''}`} onClick={()=>setTab('commitments')} title="Contas a Pagar & Receber"><Calendar size={18}/>{!collapsed&&<span>Compromissos</span>}</button>
+
+          {!collapsed&&<div className="nav-section-title">Planejamento & IA</div>}
+          <button className={`nav-item ${tab==='goals'?'active':''}`} onClick={()=>setTab('goals')} title="Metas Financeiras"><Target size={18}/>{!collapsed&&<span>Metas Financeiras</span>}</button>
+          <button className={`nav-item ${tab==='budgets'?'active':''}`} onClick={()=>setTab('budgets')} title="Orçamentos"><PieChart size={18}/>{!collapsed&&<span>Orçamentos</span>}</button>
+          <button className={`nav-item ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')} title="Fluxo de Caixa & Relatórios"><TrendingUp size={18}/>{!collapsed&&<span>Fluxo & Relatórios</span>}</button>
+          <button className={`nav-item ${tab==='advisor'?'active':''}`} onClick={()=>setTab('advisor')} title="BOMA Inteligente (IA)"><Sparkles size={18}/>{!collapsed&&<span>BOMA Inteligente (IA)</span>}</button>
+
+          {!collapsed&&<div className="nav-section-title">Gestão & Sistema</div>}
+          <button className={`nav-item ${tab==='transfers'?'active':''}`} onClick={()=>setTab('transfers')} title="Transferências Internas"><ArrowLeftRight size={18}/>{!collapsed&&<span>Transferências</span>}</button>
+          <button className={`nav-item ${tab==='profiles'?'active':''}`} onClick={()=>setTab('profiles')} title="Gestão de Perfis"><Users size={18}/>{!collapsed&&<span>Perfis</span>}</button>
+        </div>
 
         <div className="user-box">
           <div className="user-avatar">{user.charAt(0).toUpperCase()}</div>
           {!collapsed&&<div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:'13px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{user}</div><div style={{fontSize:'11px',color:'#7c889a'}}>{current?current.name:'Consolidado'}</div></div>}
-          <button className="icon-button" onClick={logout} title="Sair do sistema"><LogOut size={16}/></button>
+          <button className="icon-button" onClick={logout} title="Sair do sistema"><LogOut size={16} color="#94a3b8"/></button>
         </div>
       </aside>
 
       <main className="content">
         <header className="topbar">
-          <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-            <button className="icon-button" onClick={()=>setCollapsed(!collapsed)}><Menu size={18}/></button>
+          <div className="topbar-left">
+            <button className="icon-button" onClick={()=>setCollapsed(!collapsed)} title="Recolher/Expandir menu"><Menu size={18}/></button>
             <div className="profile-selector">
               <label>Perfil Ativo:</label>
               <select value={selected} onChange={e=>setSelected(e.target.value)}>
@@ -385,91 +390,208 @@ function App(){
             </div>
           </div>
 
-          <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+          <div className="topbar-right">
             <button className="secondary" onClick={exportCsv} title="Exportar Extrato em CSV"><FileSpreadsheet size={16}/> {!collapsed&&<span>Exportar CSV</span>}</button>
             <button className="primary" onClick={()=>setModal('entry')} disabled={!current||!accounts.length}><Plus size={16}/> Novo Lançamento</button>
           </div>
         </header>
 
-        {error&&<div className="error" style={{margin:'16px 24px 0'}}>{error}</div>}
+        {error&&<div className="error" style={{margin:'16px 32px 0'}}>{error}</div>}
 
         <div className="page">
           {tab==='dashboard'&&dash&&<>
             <div className="metrics">
               <div className="metric">
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                <div className="metric-header">
                   <span className="metric-label">Saldo Real em Contas</span>
                   <div className="metric-icon-badge" style={{background:'#ecfdf5',color:'#059669'}}><Wallet size={18}/></div>
                 </div>
-                <span className="metric-val">{money(dash.balance)}</span>
-                <span className="metric-sub">Liquidez disponível imediata</span>
+                <div>
+                  <div className="metric-val">{money(dash.balance)}</div>
+                  <div className="metric-sub">Liquidez disponível imediata</div>
+                </div>
               </div>
+
               <div className="metric">
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                <div className="metric-header">
                   <span className="metric-label">Saldo Projetado</span>
                   <div className="metric-icon-badge" style={{background:'#f0fdfa',color:'#0d9488'}}><TrendingUp size={18}/></div>
                 </div>
-                <span className="metric-val" style={{color:'#0d9488'}}>{money(dash.projectedBalance||dash.balance)}</span>
-                <span className="metric-sub">Incorporando agendamentos</span>
+                <div>
+                  <div className="metric-val" style={{color:'#0d9488'}}>{money(dash.projectedBalance||dash.balance)}</div>
+                  <div className="metric-sub">Considerando faturas e agendamentos</div>
+                </div>
               </div>
+
               <div className="metric">
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                <div className="metric-header">
                   <span className="metric-label">Receitas do Mês</span>
                   <div className="metric-icon-badge" style={{background:'#ecfdf5',color:'#10b981'}}><ArrowUpRight size={18}/></div>
                 </div>
-                <span className="metric-val" style={{color:'#10b981'}}>{money(dash.income)}</span>
-                <span className="metric-sub" style={{color:dash.scheduledIncome&&Number(dash.scheduledIncome)>0?'#059669':'inherit'}}>
-                  {dash.scheduledIncome&&Number(dash.scheduledIncome)>0?`+${money(dash.scheduledIncome)} a receber`:'Total realizado'}
-                </span>
+                <div>
+                  <div className="metric-val" style={{color:'#10b981'}}>{money(dash.income)}</div>
+                  <div className="metric-sub" style={{color:dash.scheduledIncome&&Number(dash.scheduledIncome)>0?'#059669':'inherit'}}>
+                    {dash.scheduledIncome&&Number(dash.scheduledIncome)>0?`+${money(dash.scheduledIncome)} a receber`:'Total realizado no período'}
+                  </div>
+                </div>
               </div>
+
               <div className="metric">
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                <div className="metric-header">
                   <span className="metric-label">Despesas do Mês</span>
                   <div className="metric-icon-badge" style={{background:'#fef2f2',color:'#ef4444'}}><ArrowDownRight size={18}/></div>
                 </div>
-                <span className="metric-val" style={{color:'#ef4444'}}>{money(dash.expense)}</span>
-                <span className="metric-sub" style={{color:dash.scheduledExpense&&Number(dash.scheduledExpense)>0?'#d97706':'inherit'}}>
-                  {dash.scheduledExpense&&Number(dash.scheduledExpense)>0?`+${money(dash.scheduledExpense)} previstas`:'Total realizado'}
-                </span>
+                <div>
+                  <div className="metric-val" style={{color:'#ef4444'}}>{money(dash.expense)}</div>
+                  <div className="metric-sub" style={{color:dash.scheduledExpense&&Number(dash.scheduledExpense)>0?'#d97706':'inherit'}}>
+                    {dash.scheduledExpense&&Number(dash.scheduledExpense)>0?`+${money(dash.scheduledExpense)} previstas`:'Total realizado no período'}
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'16px',marginTop:'16px'}}>
-              <section className="panel">
-                <div className="panel-title">
-                  <h2>Resumo da Consolidação</h2>
-                  <span className="pill">{selected==='all'?'Consolidado':'Individual'}</span>
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:'12px',marginTop:'8px'}}>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
-                    <span>Resultado Operacional (Receitas − Despesas):</span>
-                    <b style={{color:Number(dash.result)>=0?'#13a294':'#be6a55'}}>{money(dash.result)}</b>
+            <div className="dashboard-grid">
+              <div style={{display:'flex',flexDirection:'column',gap:'22px'}}>
+                <section className="panel">
+                  <div className="panel-title">
+                    <h2>Resumo Operacional & Performance</h2>
+                    <span className="pill" style={{background:Number(dash.result)>=0?'#ecfdf5':'#fef2f2',color:Number(dash.result)>=0?'#059669':'#ef4444'}}>
+                      {Number(dash.result)>=0?'Superávit Operacional':'Déficit Operacional'}
+                    </span>
                   </div>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
-                    <span>Perfis Autorizados na Visão:</span>
-                    <b>{dash.profileCount} perfil(is)</b>
-                  </div>
-                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
-                    <span>Contas Bancárias Ativas:</span>
-                    <b>{dash.accountCount} conta(s)</b>
-                  </div>
-                </div>
-              </section>
 
-              <section className="panel">
-                <div className="panel-title">
-                  <h2>BOMA Inteligente · Diagnóstico Rápido</h2>
-                  <button className="secondary" style={{fontSize:'12px',padding:'4px 8px'}} onClick={()=>setTab('advisor')}>Abrir Consultor</button>
-                </div>
-                <div style={{padding:'12px',background:'#f0fbf9',borderRadius:'8px',border:'1px solid #c2ece5'}}>
-                  <div style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,color:'#11756f',marginBottom:'6px'}}>
-                    <Sparkles size={16}/><span>Análise com IA Pronta</span>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:'16px',marginTop:'8px',marginBottom:'20px'}}>
+                    <div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>Resultado Líquido</div>
+                      <div style={{fontSize:'22px',fontWeight:800,color:Number(dash.result)>=0?'#10b981':'#ef4444',marginTop:'4px'}}>{money(dash.result)}</div>
+                    </div>
+                    <div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>Perfis no Consolidado</div>
+                      <div style={{fontSize:'22px',fontWeight:800,color:'var(--text-main)',marginTop:'4px'}}>{dash.profileCount} perfis</div>
+                    </div>
+                    <div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',border:'1px solid var(--border)'}}>
+                      <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>Contas Conectadas</div>
+                      <div style={{fontSize:'22px',fontWeight:800,color:'var(--text-main)',marginTop:'4px'}}>{dash.accountCount} contas</div>
+                    </div>
                   </div>
-                  <p style={{fontSize:'12px',color:'#233649',margin:0,lineHeight:1.5}}>
-                    Seu sistema monitora em tempo real a margem segura de gastos, faturas de cartão e compromissos dos próximos 90 dias.
-                  </p>
-                </div>
-              </section>
+
+                  <div style={{marginTop:'12px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'6px'}}>
+                      <span style={{fontWeight:600,color:'var(--text-main)'}}>Eficiência Orçamentária</span>
+                      <span style={{fontWeight:700,color:'#0d9488'}}>
+                        {Number(dash.income)>0?`${Math.max(0,Math.round(((Number(dash.income)-Number(dash.expense))/Number(dash.income))*100))}% poupado`:'0%'}
+                      </span>
+                    </div>
+                    <div className="progress-track" style={{height:'10px'}}>
+                      <div className="progress-bar" style={{
+                        width:`${Number(dash.income)>0?Math.min(100,Math.max(0,Math.round(((Number(dash.income)-Number(dash.expense))/Number(dash.income))*100))):0}%`,
+                        background:'linear-gradient(90deg,#0d9488,#10b981)'
+                      }}/>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="panel">
+                  <div className="panel-title">
+                    <h2>Últimas Movimentações Financeiras</h2>
+                    <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>setTab('entries')}>Ver todas</button>
+                  </div>
+                  {entries.length===0?<Empty text="Nenhuma movimentação registrada no perfil."/>:(
+                    <div className="table-wrap">
+                      <table>
+                        <thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Status</th><th>Valor</th></tr></thead>
+                        <tbody>
+                          {entries.slice(0,5).map(e=>(
+                            <tr key={e.id}>
+                              <td>{new Date(e.occurredAt).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
+                              <td><b>{e.description}</b></td>
+                              <td>{e.account.name}</td>
+                              <td>
+                                <span className="pill" style={{
+                                  background:e.status==='POSTED'?'#ecfdf5':e.status==='SCHEDULED'?'#fffbeb':'#fef2f2',
+                                  color:e.status==='POSTED'?'#059669':e.status==='SCHEDULED'?'#d97706':'#ef4444'
+                                }}>
+                                  {e.status==='POSTED'?'Realizado':e.status==='SCHEDULED'?'Previsto':'Estornado'}
+                                </span>
+                              </td>
+                              <td className={['INCOME','TRANSFER_IN'].includes(e.type)?'positive':'negative'}>
+                                {['INCOME','TRANSFER_IN'].includes(e.type)?'+':'−'} {money(e.amount)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </section>
+              </div>
+
+              <div style={{display:'flex',flexDirection:'column',gap:'22px'}}>
+                <section className="panel" style={{borderLeft:'4px solid #0d9488'}}>
+                  <div className="panel-title" style={{marginBottom:'12px'}}>
+                    <h2>BOMA IA · Diagnóstico</h2>
+                    <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('advisor')}>Abrir</button>
+                  </div>
+                  <div style={{background:'#f0fdfa',padding:'16px',borderRadius:'12px',border:'1px solid #99f6e4',marginBottom:'12px'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,color:'#0f766e',marginBottom:'6px'}}>
+                      <Sparkles size={16}/><span>Consultor Ativo</span>
+                    </div>
+                    <p style={{fontSize:'12px',color:'#134e4a',lineHeight:1.5,margin:0}}>
+                      Seu fluxo operacional monitora receitas, faturas de cartão e compromissos dos próximos 90 dias com projeção segura de gastos.
+                    </p>
+                  </div>
+                  <button className="primary" style={{width:'100%',padding:'10px',fontSize:'12px'}} onClick={()=>setTab('advisor')}>
+                    <Sparkles size={14}/> Fazer Pergunta ao Consultor
+                  </button>
+                </section>
+
+                {cards.length>0&&(
+                  <section className="panel">
+                    <div className="panel-title" style={{marginBottom:'12px'}}>
+                      <h2>Cartão Principal</h2>
+                      <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('cards')}>Ver todos</button>
+                    </div>
+                    <div className="credit-card-ui" style={{minHeight:'170px',padding:'18px'}}>
+                      <div>
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                          <div className="card-chip"/>
+                          <span style={{fontSize:'10px',letterSpacing:'0.08em',color:'#94a3b8',fontWeight:700}}>CARTÃO DIGITAL</span>
+                        </div>
+                        <h4 style={{fontSize:'15px',fontWeight:800,margin:'0 0 4px'}}>{cards[0].name}</h4>
+                        <div style={{fontSize:'11px',color:'#cbd5e1'}}>Disponível: <b style={{color:'#2dd4bf'}}>{money(cards[0].availableLimit)}</b></div>
+                      </div>
+                      {cards[0].currentInvoice&&(
+                        <div style={{marginTop:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.1)',paddingTop:'8px'}}>
+                          <span style={{fontSize:'11px',color:'#94a3b8'}}>Fatura {cards[0].currentInvoice.referenceMonth}</span>
+                          <b style={{fontSize:'14px',color:'#f87171'}}>{money(cards[0].currentInvoice.totalAmount)}</b>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {goals.length>0&&(
+                  <section className="panel">
+                    <div className="panel-title" style={{marginBottom:'12px'}}>
+                      <h2>Metas em Foco</h2>
+                      <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('goals')}>Ver metas</button>
+                    </div>
+                    <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+                      {goals.slice(0,2).map(g=>(
+                        <div key={g.id} style={{background:'#f8fafc',padding:'12px',borderRadius:'10px',border:'1px solid var(--border)'}}>
+                          <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',marginBottom:'4px'}}>
+                            <b>{g.name}</b>
+                            <span style={{fontWeight:700,color:'#0d9488'}}>{g.progress}%</span>
+                          </div>
+                          <div className="progress-track" style={{height:'6px'}}>
+                            <div className="progress-bar" style={{width:`${Math.min(100,g.progress)}%`,background:g.color||'#10b981'}}/>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
             </div>
           </>}
 

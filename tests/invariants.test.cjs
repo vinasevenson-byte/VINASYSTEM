@@ -32,3 +32,16 @@ test('Sessão não é persistida em localStorage', () => {
 test('Cabeçalho Authorization exige Bearer estrito', () => {
   assert.match(guard, /\^Bearer /);
 });
+test('Categorias exigem perfil autorizado, tipo e nome', () => {
+  assert.match(route, /@Get\('profiles\/:id\/categories'\)/);
+  assert.match(route, /@Post\('profiles\/:id\/categories'\)/);
+  assert.match(route, /CATEGORY_CREATED/);
+  assert.match(web, /modal==='category'/);
+});
+test('Edição de lançamentos valida conta, categoria, autorização e impede transferência isolada', () => {
+  assert.match(route, /@Patch\('entries\/:id'\)/);
+  assert.match(route, /previous\.transferId/);
+  assert.match(route, /previous\.reconciled/);
+  assert.match(route, /ENTRY_EDITED/);
+  assert.match(web, /modal==='edit_entry'/);
+});

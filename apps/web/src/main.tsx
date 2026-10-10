@@ -340,7 +340,7 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
       saveLocalState(state);
       return { success: true, deletedId: id } as unknown as T;
     }
-    if (method === 'PUT') {
+    if (method === 'PUT' || method === 'PATCH') {
       const idx = state.entries.findIndex(e => e.id === id);
       if (idx !== -1) {
         const acc = b?.accountId ? state.accounts.find(a => a.id === b.accountId) : undefined;
@@ -883,6 +883,15 @@ function App(){
   };
 
   const handleEditEntry=(e:Entry)=>{
+    setError('');
+    if(e.reconciled){
+      setError('Lançamentos já conciliados não podem ser alterados.');
+      return;
+    }
+    if(e.type==='TRANSFER_IN'||e.type==='TRANSFER_OUT'||(e as any).transferId){
+      setError('Transferências não podem ser editadas isoladamente.');
+      return;
+    }
     setEditingEntry(e);
     setModal('edit_entry');
   };
@@ -969,7 +978,7 @@ function App(){
           status:v('status')||editingEntry.status,
           accountId:v('accountId')||editingEntry.accountId,
           occurredAt:new Date(v('date')+'T12:00:00').toISOString()
-        },'PUT');
+        },'PATCH');
         setEditingEntry(null);
       }else if(modal==='transfer'){
         if(!destinationAccounts.some(a=>a.id===v('toAccount')))throw new Error('Selecione uma conta de destino válida.');
@@ -1864,7 +1873,10 @@ function App(){
           {tab==='entries'&&<section className="panel">
             <div className="panel-title">
               <h2>Movimentações financeiras</h2>
-              <button className="secondary" onClick={handleNewEntry}>+ Novo lançamento</button>
+              <div style={{display:'flex',gap:'8px'}}>
+                <button className="secondary" onClick={()=>setModal('category')}>+ Nova categoria</button>
+                <button className="secondary" onClick={handleNewEntry}>+ Novo lançamento</button>
+              </div>
             </div>
             {!current?<Empty text="Selecione um perfil individual para consultar seus lançamentos."/>:(
               <>

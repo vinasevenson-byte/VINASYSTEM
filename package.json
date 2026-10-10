@@ -17,6 +17,7 @@
     "build": "npm run build:web",
     "seed": "node scripts/seed-rule.cjs",
     "db:start": "node scripts/db.cjs",
+    "db:studio": "npm run --workspace=@boma/api db:studio",
     "db:generate": "npm run --workspace=@boma/api db:generate",
     "db:push": "npm run --workspace=@boma/api db:push",
     "db:migrate": "npm run --workspace=@boma/api db:migrate"

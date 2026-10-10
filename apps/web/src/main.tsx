@@ -305,33 +305,38 @@ function App(){
 
   if(!token){
     return (
-      <div className="login-card">
-        <h1>BOMA Finance</h1>
-        <p>Gestão Financeira Pessoal, Familiar e Multiperfis</p>
-        <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
-          <button className={modal==='login'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('login')}>Entrar</button>
-          <button className={modal==='register'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('register')}>Cadastre-se</button>
+      <div style={{minHeight:'100vh',display:'grid',placeItems:'center',background:'radial-gradient(ellipse at 80% 20%,#ccfbf1 0%,#f8fafc 50%,#e2e8f0 100%)',padding:'20px'}}>
+        <div className="login-card">
+          <div style={{display:'flex',justifyContent:'center',marginBottom:'14px'}}>
+            <div className="brand-icon" style={{width:'48px',height:'48px',fontSize:'22px'}}>B</div>
+          </div>
+          <h1>BOMA Finance</h1>
+          <p>Gestão Financeira Pessoal, Familiar e Multiperfis</p>
+          <div style={{display:'flex',gap:'8px',marginBottom:'16px'}}>
+            <button className={modal==='login'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('login')}>Entrar</button>
+            <button className={modal==='register'?'primary':'secondary'} style={{flex:1}} onClick={()=>setModal('register')}>Cadastre-se</button>
+          </div>
+          <form onSubmit={submit}>
+            {modal==='register'&&<label>Seu nome completo<input name="name" required placeholder="Ex.: Vinícius"/></label>}
+            <label>E-mail<input name="email" type="email" required placeholder="seu@email.com"/></label>
+            <label>Senha de acesso (mínimo 12 caracteres)<input name="password" type="password" minLength={12} required placeholder="••••••••••••"/></label>
+            {error&&<div className="error">{error}</div>}
+            <button className="primary" style={{width:'100%',marginTop:'8px',padding:'12px'}} type="submit" disabled={busy}>{busy?'Autenticando...':modal==='login'?'Acessar BOMA Finance':'Criar minha conta'}</button>
+            <button
+              type="button"
+              className="secondary"
+              style={{width:'100%',marginTop:'10px',background:'#def3ef',color:'#11756f',borderColor:'#a2dec9',fontWeight:700,fontSize:'13px',padding:'11px'}}
+              onClick={()=>{
+                sessionStorage.setItem('boma_token','demo_token');
+                sessionStorage.setItem('boma_name','Vinicius BOMA');
+                setToken('demo_token');
+                setUser('Vinicius BOMA');
+              }}
+            >
+              ✨ Acessar Modo Demonstração (Vercel Preview)
+            </button>
+          </form>
         </div>
-        <form onSubmit={submit}>
-          {modal==='register'&&<label>Seu nome completo<input name="name" required placeholder="Ex.: Vinícius"/></label>}
-          <label>E-mail<input name="email" type="email" required placeholder="seu@email.com"/></label>
-          <label>Senha de acesso (mínimo 12 caracteres)<input name="password" type="password" minLength={12} required placeholder="••••••••••••"/></label>
-          {error&&<div className="error">{error}</div>}
-          <button className="primary" style={{width:'100%',marginTop:'12px'}} type="submit" disabled={busy}>{busy?'Autenticando...':modal==='login'?'Acessar BOMA Finance':'Criar minha conta'}</button>
-          <button
-            type="button"
-            className="secondary"
-            style={{width:'100%',marginTop:'10px',background:'#def3ef',color:'#11756f',borderColor:'#a2dec9',fontWeight:700,fontSize:'13px'}}
-            onClick={()=>{
-              sessionStorage.setItem('boma_token','demo_token');
-              sessionStorage.setItem('boma_name','Vinicius BOMA');
-              setToken('demo_token');
-              setUser('Vinicius BOMA');
-            }}
-          >
-            ✨ Acessar Modo Demonstração (Vercel Preview)
-          </button>
-        </form>
       </div>
     );
   }

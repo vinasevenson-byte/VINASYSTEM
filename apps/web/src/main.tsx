@@ -1,21 +1,46 @@
 import React,{useEffect,useState} from 'react';
 import{createRoot}from'react-dom/client';
-import{LayoutDashboard,Users,Wallet,ReceiptText,Landmark,ArrowLeftRight,LogOut,Plus,Menu,ChartNoAxesCombined,ShieldCheck,CreditCard,CheckCircle2,Clock,RotateCcw,Target,Calendar,Bot,FileSpreadsheet,Sparkles,TrendingUp,AlertTriangle,ArrowDownRight,ArrowUpRight,DollarSign,PieChart,Pencil,Trash2,Search,Filter}from'lucide-react';
+import{LayoutDashboard,Users,Wallet,ReceiptText,Landmark,ArrowLeftRight,LogOut,Plus,Menu,ChartNoAxesCombined,ShieldCheck,CreditCard,CheckCircle2,Clock,RotateCcw,Target,Calendar,Bot,FileSpreadsheet,Sparkles,TrendingUp,AlertTriangle,ArrowDownRight,ArrowUpRight,DollarSign,PieChart,Pencil,Trash2,Search,Filter,Sun,Moon,FolderTree,PiggyBank,Layers}from'lucide-react';
 import './style.css';
 
 type Profile={id:string,name:string,role:string};
 type Account={id:string,name:string,openingBalance:string};
-type Entry={id:string,type:string,status:string,amount:string,description:string,occurredAt:string,reconciled?:boolean,accountId?:string,account:{name:string}};
+type Entry={id:string,type:string,status:string,amount:string,description:string,occurredAt:string,reconciled?:boolean,accountId?:string,category?:string,paymentMethod?:string,account:{name:string}};
 type Card={id:string,name:string,limit:string,closingDay:number,dueDay:number,color?:string,availableLimit:string,currentInvoice?:{id:string,referenceMonth:string,totalAmount:string,status:string}};
 type Commitment={id:string,type:'PAYABLE'|'RECEIVABLE',status:'PENDING'|'PAID',description:string,amount:string,dueDate:string,entityName?:string,category?:string,paidAt?:string};
 type Goal={id:string,name:string,targetAmount:string,currentAmount:string,progress:number,targetDate?:string,status:string,color?:string};
 type Budget={id:string,categoryName:string,plannedAmount:string,spentAmount:string,percentageUsed:number};
+type Category={id:string,name:string,type:'INCOME'|'EXPENSE'};
+type Investment={id:string,name:string,type:string,initialAmount:string,currentAmount:string,institution?:string,yieldRate?:string};
 type CashflowItem={month:string,income:string,expense:string,obligations:string,net:string};
 type AdvisorData={score:number,status:string,safeMonthlySpend:string,threeMonthSurplus:string,diagnosis:string,actionPlan:string[],aiGenerated:boolean};
 type Dash={income:string,expense:string,result:string,balance:string,projectedBalance?:string,scheduledIncome?:string,scheduledExpense?:string,profileCount:number,accountCount:number};
 
 const money=(value:string|number)=>Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const API_BASE=(import.meta.env.VITE_API_URL||'').replace(/\/$/,'')+'/api';
+const CATEGORY_COLORS = ['#10b981', '#0d9488', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#64748b', '#06b6d4'];
+
+const DEFAULT_CATEGORIES: Category[] = [
+  { id: 'cat-salario', name: 'Salário', type: 'INCOME' },
+  { id: 'cat-freelance', name: 'Freelance & Serviços', type: 'INCOME' },
+  { id: 'cat-rendimentos', name: 'Rendimentos & Dividendos', type: 'INCOME' },
+  { id: 'cat-outras-rec', name: 'Outras Receitas', type: 'INCOME' },
+  { id: 'cat-alimentacao', name: 'Alimentação & Mercado', type: 'EXPENSE' },
+  { id: 'cat-moradia', name: 'Moradia & Contas Fixas', type: 'EXPENSE' },
+  { id: 'cat-transporte', name: 'Transporte & Combustível', type: 'EXPENSE' },
+  { id: 'cat-saude', name: 'Saúde & Farmácia', type: 'EXPENSE' },
+  { id: 'cat-lazer', name: 'Lazer & Entretenimento', type: 'EXPENSE' },
+  { id: 'cat-educacao', name: 'Educação & Cursos', type: 'EXPENSE' },
+  { id: 'cat-assinaturas', name: 'Assinaturas & Serviços', type: 'EXPENSE' },
+  { id: 'cat-outras-desp', name: 'Outras Despesas', type: 'EXPENSE' }
+];
+
+const DEFAULT_INVESTMENTS: Investment[] = [
+  { id: 'inv-1', name: 'Tesouro Selic 2029', type: 'Renda Fixa', initialAmount: '20000.00', currentAmount: '22450.00', institution: 'XP Investimentos', yieldRate: '100% CDI' },
+  { id: 'inv-2', name: 'Carteira de Dividendos (Ações)', type: 'Ações', initialAmount: '35000.00', currentAmount: '41200.00', institution: 'BTG Pactual', yieldRate: '+17.7%' },
+  { id: 'inv-3', name: 'Fundos Imobiliários (FIIs)', type: 'FIIs', initialAmount: '15000.00', currentAmount: '16800.00', institution: 'Nubank / NuInvest', yieldRate: '0.85% a.m.' }
+];
+
 const DEMO_PROFILES: Profile[] = [
   { id: 'p-pessoal', name: 'Pessoal', role: 'OWNER' },
   { id: 'p-familiar', name: 'Familiar', role: 'MANAGER' },
@@ -85,6 +110,8 @@ function getDemoData<T>(path:string,body?:any):T{
     return { income:'12500.00',expense:'4820.00',result:'7680.00',balance:'109250.00',projectedBalance:'111930.00',scheduledIncome:'3500.00',scheduledExpense:'820.00',profileCount:3,accountCount:3 } as unknown as T;
   }
   if(path.startsWith('/reports/cashflow')) return DEMO_CASHFLOW as unknown as T;
+  if(path.endsWith('/categories')) return DEFAULT_CATEGORIES as unknown as T;
+  if(path.endsWith('/investments')) return DEFAULT_INVESTMENTS as unknown as T;
   if(path.startsWith('/reports/export')) {
     const csv='ID,Data,Perfil,Conta,Tipo,Status,Descricao,Valor(R$),Conciliado\n"demo-1","2026-10-10T12:00:00.000Z","Pessoal","Nubank Principal","INCOME","POSTED","Salário Executivo","12500.00","Sim"';
     return {csv,totalRecords:1} as unknown as T;
@@ -97,17 +124,22 @@ interface LocalState {
   profiles: Profile[];
   accounts: (Account & { profileId: string })[];
   cards: (Card & { profileId: string })[];
-  entries: (Entry & { profileId: string; accountId: string })[];
+  entries: (Entry & { profileId: string; accountId: string; category?: string; paymentMethod?: string })[];
   commitments: (Commitment & { profileId: string })[];
   goals: (Goal & { profileId: string })[];
   budgets: (Budget & { profileId: string })[];
+  categories: Category[];
+  investments: (Investment & { profileId: string })[];
 }
 
 function getLocalState(): LocalState {
   const raw = sessionStorage.getItem('vina_store_state');
   if (raw) {
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      if (!parsed.categories || !parsed.categories.length) parsed.categories = DEFAULT_CATEGORIES;
+      if (!parsed.investments) parsed.investments = DEFAULT_INVESTMENTS.map((i: any) => ({ ...i, profileId: 'p-pessoal' }));
+      return parsed;
     } catch {
       // ignore
     }
@@ -125,10 +157,10 @@ function getLocalState(): LocalState {
       { id: 'card-1', profileId: 'p-pessoal', name: 'Nubank Ultravioleta', limit: '20000.00', closingDay: 25, dueDay: 5, color: '#8a05be', availableLimit: '16000.00', currentInvoice: { id: 'inv-1', referenceMonth: '2026-10', totalAmount: '4000.00', status: 'OPEN' } }
     ],
     entries: [
-      { id: 'e-1', profileId: 'p-pessoal', accountId: 'acc-1', type: 'INCOME', status: 'POSTED', amount: '12500.00', description: 'Salário Executivo', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
-      { id: 'e-2', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '2450.00', description: 'Aluguel Residencial', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
-      { id: 'e-3', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '1250.00', description: 'Supermercado Mensal', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
-      { id: 'e-4', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'SCHEDULED', amount: '820.00', description: 'Seguro Auto', occurredAt: new Date(Date.now()+8*86400000).toISOString(), account: { name: 'Nubank Principal' } }
+      { id: 'e-1', profileId: 'p-pessoal', accountId: 'acc-1', type: 'INCOME', status: 'POSTED', amount: '12500.00', description: 'Salário Executivo [Salário]', occurredAt: new Date().toISOString(), category: 'Salário', paymentMethod: 'Transferência', account: { name: 'Nubank Principal' } },
+      { id: 'e-2', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '2450.00', description: 'Aluguel Residencial [Moradia]', occurredAt: new Date().toISOString(), category: 'Moradia', paymentMethod: 'PIX', account: { name: 'Nubank Principal' } },
+      { id: 'e-3', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '1250.00', description: 'Supermercado Mensal [Alimentação]', occurredAt: new Date().toISOString(), category: 'Alimentação', paymentMethod: 'Cartão de Débito', account: { name: 'Nubank Principal' } },
+      { id: 'e-4', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'SCHEDULED', amount: '820.00', description: 'Seguro Auto [Transporte]', occurredAt: new Date(Date.now()+8*86400000).toISOString(), category: 'Transporte', paymentMethod: 'Boleto', account: { name: 'Nubank Principal' } }
     ],
     commitments: [
       { id: 'c-1', profileId: 'p-pessoal', type: 'PAYABLE', status: 'PENDING', description: 'Energia Elétrica', amount: '385.50', dueDate: new Date(Date.now()+4*86400000).toISOString(), entityName: 'Cemig', category: 'Moradia' },
@@ -139,7 +171,9 @@ function getLocalState(): LocalState {
     ],
     budgets: [
       { id: 'b-1', profileId: 'p-pessoal', categoryName: 'Moradia', plannedAmount: '3000.00', spentAmount: '2450.00', percentageUsed: 81.7 }
-    ]
+    ],
+    categories: DEFAULT_CATEGORIES,
+    investments: DEFAULT_INVESTMENTS.map(i => ({ ...i, profileId: 'p-pessoal' }))
   };
   sessionStorage.setItem('vina_store_state', JSON.stringify(initial));
   return initial;
@@ -260,7 +294,7 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
 
   if (path === '/entries') {
     const acc = state.accounts.find(a => a.id === b?.accountId) || state.accounts[0];
-    const created: Entry & { profileId: string; accountId: string } = {
+    const created: Entry & { profileId: string; accountId: string; category?: string; paymentMethod?: string } = {
       id: 'e-' + Date.now(),
       profileId: b.profileId || (acc ? acc.profileId : 'p-pessoal'),
       accountId: b.accountId || (acc ? acc.id : 'acc-1'),
@@ -268,6 +302,8 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
       status: b.status || 'POSTED',
       amount: String(b.amount),
       description: b.description,
+      category: b.category,
+      paymentMethod: b.paymentMethod,
       occurredAt: b.occurredAt || new Date().toISOString(),
       account: { name: acc ? acc.name : 'Conta Padrão' }
     };
@@ -450,6 +486,45 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
     return state.budgets.filter(bg => pid === 'all' || bg.profileId === pid) as unknown as T;
   }
 
+  const catMatch = path.match(/^\/profiles\/([^/]+)\/categories/) || path === '/categories';
+  if (catMatch) {
+    if (b?.name) {
+      const created: Category = { id: 'cat-' + Date.now(), name: b.name, type: b.type || 'EXPENSE' };
+      state.categories.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.categories as unknown as T;
+  }
+
+  const invMatch = path.match(/^\/profiles\/([^/]+)\/investments/);
+  if (invMatch) {
+    const pid = invMatch[1];
+    if (b?.name) {
+      const created: Investment & { profileId: string } = {
+        id: 'inv-' + Date.now(),
+        profileId: pid,
+        name: b.name,
+        type: b.type || 'Renda Fixa',
+        initialAmount: String(b.initialAmount || '0.00'),
+        currentAmount: String(b.currentAmount || b.initialAmount || '0.00'),
+        institution: b.institution,
+        yieldRate: b.yieldRate
+      };
+      state.investments.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return state.investments.filter(i => pid === 'all' || i.profileId === pid) as unknown as T;
+  }
+
+  const delInvMatch = path.match(/^\/investments\/([^/]+)$/);
+  if (delInvMatch && method === 'DELETE') {
+    state.investments = state.investments.filter(i => i.id !== delInvMatch[1]);
+    saveLocalState(state);
+    return { success: true } as unknown as T;
+  }
+
   if (path.startsWith('/dashboard')) {
     const pidParam = new URLSearchParams(path.split('?')[1] || '').get('profileId');
     const filteredEntries = state.entries.filter(e => (!pidParam || pidParam === 'all') ? true : e.profileId === pidParam);
@@ -558,6 +633,7 @@ const api=async<T,>(path:string,token:string,body?:unknown,method?:string):Promi
 function App(){
   const [token,setToken]=useState(sessionStorage.getItem('vina_token')||sessionStorage.getItem('boma_token')||'');
   const [user,setUser]=useState(sessionStorage.getItem('vina_name')||sessionStorage.getItem('boma_name')||'');
+  const [theme,setTheme]=useState<'light'|'dark'>(()=>(sessionStorage.getItem('vina_theme') as 'light'|'dark')||'light');
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [selected,setSelected]=useState('all');
   const [tab,setTab]=useState('dashboard');
@@ -567,6 +643,8 @@ function App(){
   const [commitments,setCommitments]=useState<Commitment[]>([]);
   const [goals,setGoals]=useState<Goal[]>([]);
   const [budgets,setBudgets]=useState<Budget[]>([]);
+  const [categories,setCategories]=useState<Category[]>(DEFAULT_CATEGORIES);
+  const [investments,setInvestments]=useState<Investment[]>(DEFAULT_INVESTMENTS);
   const [cashflow,setCashflow]=useState<CashflowItem[]>([]);
   const [advisor,setAdvisor]=useState<AdvisorData|null>(null);
   const [advisorQuestion,setAdvisorQuestion]=useState('Quanto posso gastar este mês sem comprometer minhas contas dos próximos 3 meses?');
@@ -586,6 +664,11 @@ function App(){
   const [destinationAccounts,setDestinationAccounts]=useState<Account[]>([]);
   const [transferDestination,setTransferDestination]=useState('');
   const [notice,setNotice]=useState('');
+
+  useEffect(()=>{
+    document.documentElement.setAttribute('data-theme',theme);
+    sessionStorage.setItem('vina_theme',theme);
+  },[theme]);
 
   useEffect(()=>{
     let live=true;
@@ -618,6 +701,7 @@ function App(){
     if(!token)return;
     api<Dash>('/dashboard'+(selected==='all'?'':'?profileId='+selected),token).then(setDash).catch(e=>setError(e.message));
     api<CashflowItem[]>('/reports/cashflow'+(selected==='all'?'':'?profileId='+selected),token).then(setCashflow).catch(()=>{});
+    api<Category[]>('/categories',token).then(setCategories).catch(()=>{});
 
     if(selected==='all'){
       setAccounts([]);
@@ -626,6 +710,7 @@ function App(){
       setCommitments([]);
       setGoals([]);
       setBudgets([]);
+      setInvestments(DEFAULT_INVESTMENTS);
     }else{
       api<Account[]>(`/profiles/${selected}/accounts`,token).then(setAccounts).catch(e=>setError(e.message));
       api<Card[]>(`/profiles/${selected}/cards`,token).then(setCards).catch(e=>setError(e.message));
@@ -633,6 +718,7 @@ function App(){
       api<Commitment[]>(`/profiles/${selected}/commitments`,token).then(setCommitments).catch(()=>{});
       api<Goal[]>(`/profiles/${selected}/goals`,token).then(setGoals).catch(()=>{});
       api<Budget[]>(`/profiles/${selected}/budgets`,token).then(setBudgets).catch(()=>{});
+      api<Investment[]>(`/profiles/${selected}/investments`,token).then(setInvestments).catch(()=>{});
     }
   },[selected,token,refresh]);
 
@@ -757,6 +843,35 @@ function App(){
     setModal('goal');
   };
 
+  const handleNewCategory=()=>{
+    setError('');
+    setModal('category');
+  };
+
+  const handleNewInvestment=()=>{
+    setError('');
+    if(!profiles||profiles.length===0){
+      setError('Cadastre seu primeiro perfil antes de adicionar investimentos.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'){
+      setError('Selecione um perfil individual no topo da página para vincular o investimento.');
+      return;
+    }
+    setModal('investment');
+  };
+
+  const handleDeleteInvestment=async(id:string)=>{
+    if(!window.confirm('Deseja excluir este investimento da carteira?')) return;
+    try{
+      await api(`/investments/${id}`,token,{},'DELETE');
+      load();
+    }catch(ex){
+      setError((ex as Error).message);
+    }
+  };
+
   const handleDeleteEntry=async(id:string)=>{
     if(!window.confirm('Deseja realmente excluir permanentemente este lançamento financeiro?')) return;
     try{
@@ -827,8 +942,10 @@ function App(){
         }
         const notes=v('notes')?.trim();
         const cat=v('category')?.trim();
+        const method=v('paymentMethod')?.trim();
         let desc=v('description').trim();
         if(cat) desc += ` [${cat}]`;
+        if(method) desc += ` (${method})`;
         if(notes) desc += ` — ${notes}`;
         await api('/entries',token,{
           profileId:selected,
@@ -837,6 +954,8 @@ function App(){
           status:v('status')||'POSTED',
           amount:amt.toFixed(2),
           description:desc,
+          category:cat,
+          paymentMethod:method,
           occurredAt:new Date(v('date')+'T12:00:00').toISOString()
         });
       }else if(modal==='edit_entry'&&editingEntry){
@@ -867,6 +986,17 @@ function App(){
         const now=new Date();
         const refMonth=`${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}`;
         await api(`/profiles/${selected}/budgets`,token,{referenceMonth:refMonth,categoryName:v('categoryName'),plannedAmount:v('plannedAmount')});
+      }else if(modal==='category'){
+        await api(`/profiles/${selected}/categories`,token,{name:v('name'),type:v('type')||'EXPENSE'});
+      }else if(modal==='investment'){
+        await api(`/profiles/${selected}/investments`,token,{
+          name:v('name'),
+          type:v('type'),
+          initialAmount:v('initialAmount'),
+          currentAmount:v('currentAmount')||v('initialAmount'),
+          institution:v('institution'),
+          yieldRate:v('yieldRate')
+        });
       }
       setNotice('Operação confirmada pela API. Dados atualizados.');
       setModal('');
@@ -913,6 +1043,50 @@ function App(){
     }
     return true;
   });
+
+  const expenseEntries = entries.filter(e => e.type === 'EXPENSE' && e.status !== 'VOID');
+  const totalExpenseEntries = expenseEntries.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const categorySpendingMap: Record<string, number> = {};
+  if (expenseEntries.length > 0 && totalExpenseEntries > 0) {
+    for (const e of expenseEntries) {
+      let catName = 'Outros';
+      const desc = e.description || '';
+      const match = desc.match(/\[(.*?)\]/);
+      if (match && match[1]) {
+        catName = match[1];
+      } else if (e.category) {
+        catName = e.category;
+      } else if (/mercado|supermercado|restaurante|almoço|lanche|comida/i.test(desc)) {
+        catName = 'Alimentação';
+      } else if (/aluguel|condom[íi]nio|luz|energia|cemig|copel|sabesp|água|internet|iptu/i.test(desc)) {
+        catName = 'Moradia';
+      } else if (/uber|combust[íi]vel|gasolina|posto|estacionamento|carro|auto/i.test(desc)) {
+        catName = 'Transporte';
+      } else if (/farm[áa]cia|m[ée]dico|consulta|sa[úu]de|exame|hospital/i.test(desc)) {
+        catName = 'Saúde';
+      } else if (/netflix|cinema|viagem|spotify|lazer|jogo/i.test(desc)) {
+        catName = 'Lazer';
+      }
+      categorySpendingMap[catName] = (categorySpendingMap[catName] || 0) + Number(e.amount || 0);
+    }
+  }
+  let calculatedCategories = Object.entries(categorySpendingMap).map(([name, val]) => ({
+    name,
+    amount: val,
+    percentage: Math.round((val / totalExpenseEntries) * 100)
+  })).sort((a, b) => b.amount - a.amount);
+  if (calculatedCategories.length === 0) {
+    calculatedCategories = [
+      { name: 'Alimentação', amount: 1250, percentage: 28 },
+      { name: 'Moradia', amount: 980, percentage: 22 },
+      { name: 'Transporte', amount: 670, percentage: 15 },
+      { name: 'Saúde', amount: 535, percentage: 12 },
+      { name: 'Lazer', amount: 445, percentage: 10 },
+      { name: 'Outros', amount: 580, percentage: 13 }
+    ];
+  }
+
+  const upcomingPayables = commitments.filter(c => c.type === 'PAYABLE' && c.status === 'PENDING').slice(0, 4);
 
   if(!token){
     return (
@@ -962,7 +1136,7 @@ function App(){
       <aside className={`sidebar ${collapsed?'collapsed':''}`}>
         <div className="brand">
           <div className="brand-icon">V</div>
-          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.2 · Cadastros assistidos</span></div>}
+          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.3 · ERP Financeiro Completo</span></div>}
         </div>
 
         <div className="sidebar-scroll">
@@ -972,9 +1146,11 @@ function App(){
           <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>setTab('accounts')} title="Contas Bancárias"><Landmark size={18}/>{!collapsed&&<span>Contas Bancárias</span>}</button>
           <button className={`nav-item ${tab==='cards'?'active':''}`} onClick={()=>setTab('cards')} title="Cartões de Crédito"><CreditCard size={18}/>{!collapsed&&<span>Cartões de Crédito</span>}</button>
           <button className={`nav-item ${tab==='commitments'?'active':''}`} onClick={()=>setTab('commitments')} title="Contas a Pagar & Receber"><Calendar size={18}/>{!collapsed&&<span>Compromissos</span>}</button>
+          <button className={`nav-item ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')} title="Categorias Financeiras"><FolderTree size={18}/>{!collapsed&&<span>Categorias</span>}</button>
 
           {!collapsed&&<div className="nav-section-title">Planejamento & IA</div>}
           <button className={`nav-item ${tab==='goals'?'active':''}`} onClick={()=>setTab('goals')} title="Metas Financeiras"><Target size={18}/>{!collapsed&&<span>Metas Financeiras</span>}</button>
+          <button className={`nav-item ${tab==='investments'?'active':''}`} onClick={()=>setTab('investments')} title="Investimentos & Patrimônio"><PiggyBank size={18}/>{!collapsed&&<span>Investimentos</span>}</button>
           <button className={`nav-item ${tab==='budgets'?'active':''}`} onClick={()=>setTab('budgets')} title="Orçamentos"><PieChart size={18}/>{!collapsed&&<span>Orçamentos</span>}</button>
           <button className={`nav-item ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')} title="Fluxo de Caixa & Relatórios"><TrendingUp size={18}/>{!collapsed&&<span>Fluxo & Relatórios</span>}</button>
           <button className={`nav-item ${tab==='advisor'?'active':''}`} onClick={()=>setTab('advisor')} title="VINA Inteligente (IA)"><Sparkles size={18}/>{!collapsed&&<span>VINA Inteligente (IA)</span>}</button>
@@ -1013,6 +1189,9 @@ function App(){
           </div>
 
           <div className="topbar-right">
+            <button className="icon-button" onClick={()=>setTheme(t=>t==='light'?'dark':'light')} title={theme==='light'?'Ativar Modo Escuro':'Ativar Modo Claro'}>
+              {theme==='light'?<Moon size={18}/>:<Sun size={18} color="#f59e0b"/>}
+            </button>
             {token==='demo_token'?(
               <span className="pill" style={{background:'#fef3c7',color:'#92400e'}}><Sparkles size={12}/> Demonstração</span>
             ):token.startsWith('vina_local_')?(
@@ -1030,10 +1209,11 @@ function App(){
 
         <div className="page">
           {tab==='dashboard'&&dash&&<>
+            {/* 1. TOP METRICS: Saldo Total, Receitas, Despesas, Resultado */}
             <div className="metrics">
               <div className="metric">
                 <div className="metric-header">
-                  <span className="metric-label">Saldo Real em Contas</span>
+                  <span className="metric-label">Saldo Total</span>
                   <div className="metric-icon-badge" style={{background:'#ecfdf5',color:'#059669'}}><Wallet size={18}/></div>
                 </div>
                 <div>
@@ -1044,184 +1224,287 @@ function App(){
 
               <div className="metric">
                 <div className="metric-header">
-                  <span className="metric-label">Saldo Projetado</span>
-                  <div className="metric-icon-badge" style={{background:'#f0fdfa',color:'#0d9488'}}><TrendingUp size={18}/></div>
-                </div>
-                <div>
-                  <div className="metric-val" style={{color:'#0d9488'}}>{money(dash.projectedBalance||dash.balance)}</div>
-                  <div className="metric-sub">Considerando faturas e agendamentos</div>
-                </div>
-              </div>
-
-              <div className="metric">
-                <div className="metric-header">
-                  <span className="metric-label">Receitas do Mês</span>
+                  <span className="metric-label">Receitas</span>
                   <div className="metric-icon-badge" style={{background:'#ecfdf5',color:'#10b981'}}><ArrowUpRight size={18}/></div>
                 </div>
                 <div>
                   <div className="metric-val" style={{color:'#10b981'}}>{money(dash.income)}</div>
                   <div className="metric-sub" style={{color:dash.scheduledIncome&&Number(dash.scheduledIncome)>0?'#059669':'inherit'}}>
-                    {dash.scheduledIncome&&Number(dash.scheduledIncome)>0?`+${money(dash.scheduledIncome)} a receber`:'Total realizado no período'}
+                    {dash.scheduledIncome&&Number(dash.scheduledIncome)>0?`+${money(dash.scheduledIncome)} a receber`:'Entradas realizadas do mês'}
                   </div>
                 </div>
               </div>
 
               <div className="metric">
                 <div className="metric-header">
-                  <span className="metric-label">Despesas do Mês</span>
+                  <span className="metric-label">Despesas</span>
                   <div className="metric-icon-badge" style={{background:'#fef2f2',color:'#ef4444'}}><ArrowDownRight size={18}/></div>
                 </div>
                 <div>
                   <div className="metric-val" style={{color:'#ef4444'}}>{money(dash.expense)}</div>
                   <div className="metric-sub" style={{color:dash.scheduledExpense&&Number(dash.scheduledExpense)>0?'#d97706':'inherit'}}>
-                    {dash.scheduledExpense&&Number(dash.scheduledExpense)>0?`+${money(dash.scheduledExpense)} previstas`:'Total realizado no período'}
+                    {dash.scheduledExpense&&Number(dash.scheduledExpense)>0?`+${money(dash.scheduledExpense)} previstas`:'Saídas realizadas do mês'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="metric">
+                <div className="metric-header">
+                  <span className="metric-label">Resultado</span>
+                  <div className="metric-icon-badge" style={{background:Number(dash.result)>=0?'#ecfdf5':'#fef2f2',color:Number(dash.result)>=0?'#059669':'#ef4444'}}>
+                    <TrendingUp size={18}/>
+                  </div>
+                </div>
+                <div>
+                  <div className="metric-val" style={{color:Number(dash.result)>=0?'#10b981':'#ef4444'}}>
+                    {Number(dash.result)>=0?'+ ':'− '}{money(Math.abs(Number(dash.result)))}
+                  </div>
+                  <div className="metric-sub">
+                    <span className="pill" style={{background:Number(dash.result)>=0?'#ecfdf5':'#fef2f2',color:Number(dash.result)>=0?'#059669':'#ef4444',fontSize:'10px',padding:'2px 8px'}}>
+                      {Number(dash.result)>=0?'Superávit Mensal':'Déficit Mensal'}
+                    </span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="dashboard-grid">
-              <div style={{display:'flex',flexDirection:'column',gap:'22px'}}>
-                <section className="panel">
-                  <div className="panel-title">
-                    <h2>Resumo Operacional & Performance</h2>
-                    <span className="pill" style={{background:Number(dash.result)>=0?'#ecfdf5':'#fef2f2',color:Number(dash.result)>=0?'#059669':'#ef4444'}}>
-                      {Number(dash.result)>=0?'Superávit Operacional':'Déficit Operacional'}
-                    </span>
+            {/* 2. MIDDLE 2-COLUMN GRID: Fluxo de Caixa (gráfico) + Despesas por Categoria */}
+            <div className="dashboard-grid-2col">
+              <section className="panel">
+                <div className="panel-title">
+                  <h2>Fluxo de Caixa (Evolução Mensal)</h2>
+                  <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>setTab('reports')}>Ver Relatório</button>
+                </div>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px',fontSize:'12px',color:'var(--text-secondary)'}}>
+                  <div style={{display:'flex',gap:'12px'}}>
+                    <span style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{width:'10px',height:'10px',borderRadius:'2px',background:'#10b981',display:'inline-block'}}/> Receitas</span>
+                    <span style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{width:'10px',height:'10px',borderRadius:'2px',background:'#ef4444',display:'inline-block'}}/> Despesas</span>
                   </div>
-
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))',gap:'16px',marginTop:'8px',marginBottom:'20px'}}>
-                    <div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',border:'1px solid var(--border)'}}>
-                      <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>Resultado Líquido</div>
-                      <div style={{fontSize:'22px',fontWeight:800,color:Number(dash.result)>=0?'#10b981':'#ef4444',marginTop:'4px'}}>{money(dash.result)}</div>
-                    </div>
-                    <div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',border:'1px solid var(--border)'}}>
-                      <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>Perfis no Consolidado</div>
-                      <div style={{fontSize:'22px',fontWeight:800,color:'var(--text-main)',marginTop:'4px'}}>{dash.profileCount} perfis</div>
-                    </div>
-                    <div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',border:'1px solid var(--border)'}}>
-                      <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>Contas Conectadas</div>
-                      <div style={{fontSize:'22px',fontWeight:800,color:'var(--text-main)',marginTop:'4px'}}>{dash.accountCount} contas</div>
-                    </div>
-                  </div>
-
-                  <div style={{marginTop:'12px'}}>
-                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',marginBottom:'6px'}}>
-                      <span style={{fontWeight:600,color:'var(--text-main)'}}>Eficiência Orçamentária</span>
-                      <span style={{fontWeight:700,color:'#0d9488'}}>
-                        {Number(dash.income)>0?`${Math.max(0,Math.round(((Number(dash.income)-Number(dash.expense))/Number(dash.income))*100))}% poupado`:'0%'}
-                      </span>
-                    </div>
-                    <div className="progress-track" style={{height:'10px'}}>
-                      <div className="progress-bar" style={{
-                        width:`${Number(dash.income)>0?Math.min(100,Math.max(0,Math.round(((Number(dash.income)-Number(dash.expense))/Number(dash.income))*100))):0}%`,
-                        background:'linear-gradient(90deg,#0d9488,#10b981)'
-                      }}/>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="panel">
-                  <div className="panel-title">
-                    <h2>Últimas Movimentações Financeiras</h2>
-                    <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>setTab('entries')}>Ver todas</button>
-                  </div>
-                  {entries.length===0?<Empty text="Nenhuma movimentação registrada no perfil."/>:(
-                    <div className="table-wrap">
-                      <table>
-                        <thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Status</th><th>Valor</th></tr></thead>
-                        <tbody>
-                          {entries.slice(0,5).map(e=>(
-                            <tr key={e.id}>
-                              <td>{new Date(e.occurredAt).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
-                              <td><b>{e.description}</b></td>
-                              <td>{e.account.name}</td>
-                              <td>
-                                <span className="pill" style={{
-                                  background:e.status==='POSTED'?'#ecfdf5':e.status==='SCHEDULED'?'#fffbeb':'#fef2f2',
-                                  color:e.status==='POSTED'?'#059669':e.status==='SCHEDULED'?'#d97706':'#ef4444'
-                                }}>
-                                  {e.status==='POSTED'?'Realizado':e.status==='SCHEDULED'?'Previsto':'Estornado'}
-                                </span>
-                              </td>
-                              <td className={['INCOME','TRANSFER_IN'].includes(e.type)?'positive':'negative'}>
-                                {['INCOME','TRANSFER_IN'].includes(e.type)?'+':'−'} {money(e.amount)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </section>
-              </div>
-
-              <div style={{display:'flex',flexDirection:'column',gap:'22px'}}>
-                <section className="panel" style={{borderLeft:'4px solid #0d9488'}}>
-                  <div className="panel-title" style={{marginBottom:'12px'}}>
-                    <h2>VINA IA · Diagnóstico</h2>
-                    <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('advisor')}>Abrir</button>
-                  </div>
-                  <div style={{background:'#f0fdfa',padding:'16px',borderRadius:'12px',border:'1px solid #99f6e4',marginBottom:'12px'}}>
-                    <div style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,color:'#0f766e',marginBottom:'6px'}}>
-                      <Sparkles size={16}/><span>Consultor Ativo</span>
-                    </div>
-                    <p style={{fontSize:'12px',color:'#134e4a',lineHeight:1.5,margin:0}}>
-                      Seu fluxo operacional monitora receitas, faturas de cartão e compromissos dos próximos 90 dias com projeção segura de gastos.
-                    </p>
-                  </div>
-                  <button className="primary" style={{width:'100%',padding:'10px',fontSize:'12px'}} onClick={()=>setTab('advisor')}>
-                    <Sparkles size={14}/> Fazer Pergunta ao Consultor
-                  </button>
-                </section>
-
-                {cards.length>0&&(
-                  <section className="panel">
-                    <div className="panel-title" style={{marginBottom:'12px'}}>
-                      <h2>Cartão Principal</h2>
-                      <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('cards')}>Ver todos</button>
-                    </div>
-                    <div className="credit-card-ui" style={{minHeight:'170px',padding:'18px'}}>
-                      <div>
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-                          <div className="card-chip"/>
-                          <span style={{fontSize:'10px',letterSpacing:'0.08em',color:'#94a3b8',fontWeight:700}}>CARTÃO DIGITAL</span>
+                  <span>Últimos meses</span>
+                </div>
+                <div className="cashflow-chart-wrap">
+                  {(cashflow.length > 0 ? cashflow : DEMO_CASHFLOW).slice(-4).map(cf => {
+                    const inc = Number(cf.income);
+                    const exp = Number(cf.expense);
+                    const maxV = Math.max(...(cashflow.length > 0 ? cashflow : DEMO_CASHFLOW).slice(-4).map(c => Math.max(Number(c.income), Number(c.expense))), 1000);
+                    const incH = Math.max(8, Math.round((inc / maxV) * 100));
+                    const expH = Math.max(8, Math.round((exp / maxV) * 100));
+                    const net = Number(cf.net);
+                    return (
+                      <div key={cf.month} className="cashflow-bar-group">
+                        <div className="cashflow-bars">
+                          <div className="cashflow-bar" style={{height:`${incH}%`,background:'#10b981'}} title={`Receita: ${money(cf.income)}`}/>
+                          <div className="cashflow-bar" style={{height:`${expH}%`,background:'#ef4444'}} title={`Despesa: ${money(cf.expense)}`}/>
                         </div>
-                        <h4 style={{fontSize:'15px',fontWeight:800,margin:'0 0 4px'}}>{cards[0].name}</h4>
-                        <div style={{fontSize:'11px',color:'#cbd5e1'}}>Disponível: <b style={{color:'#2dd4bf'}}>{money(cards[0].availableLimit)}</b></div>
+                        <span style={{fontSize:'11px',fontWeight:700,color:'var(--text-main)'}}>{cf.month.slice(5)}/{cf.month.slice(2,4)}</span>
+                        <span style={{fontSize:'10px',fontWeight:700,color:net>=0?'#10b981':'#ef4444'}}>{net>=0?'+':'−'}{money(Math.abs(net))}</span>
                       </div>
-                      {cards[0].currentInvoice&&(
-                        <div style={{marginTop:'10px',display:'flex',justifyContent:'space-between',alignItems:'center',borderTop:'1px solid rgba(255,255,255,0.1)',paddingTop:'8px'}}>
-                          <span style={{fontSize:'11px',color:'#94a3b8'}}>Fatura {cards[0].currentInvoice.referenceMonth}</span>
-                          <b style={{fontSize:'14px',color:'#f87171'}}>{money(cards[0].currentInvoice.totalAmount)}</b>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                )}
+                    );
+                  })}
+                </div>
+              </section>
 
-                {goals.length>0&&(
-                  <section className="panel">
-                    <div className="panel-title" style={{marginBottom:'12px'}}>
-                      <h2>Metas em Foco</h2>
-                      <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('goals')}>Ver metas</button>
+              <section className="panel">
+                <div className="panel-title">
+                  <h2>Despesas por Categoria</h2>
+                  <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>setTab('budgets')}>Orçamentos</button>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+                  {calculatedCategories.slice(0,5).map((cat, idx) => (
+                    <div key={cat.name} className="category-bar-item">
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'13px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                          <span style={{width:'10px',height:'10px',borderRadius:'2px',background:CATEGORY_COLORS[idx%CATEGORY_COLORS.length],display:'inline-block'}}/>
+                          <b style={{color:'var(--text-main)'}}>{cat.name}</b>
+                        </div>
+                        <div>
+                          <span style={{fontWeight:700,color:'var(--text-main)',marginRight:'8px'}}>{cat.percentage}%</span>
+                          <span style={{fontSize:'12px',color:'var(--text-secondary)'}}>{money(cat.amount)}</span>
+                        </div>
+                      </div>
+                      <div className="progress-track" style={{height:'7px'}}>
+                        <div className="progress-bar" style={{width:`${cat.percentage}%`,background:CATEGORY_COLORS[idx%CATEGORY_COLORS.length]}}/>
+                      </div>
                     </div>
-                    <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-                      {goals.slice(0,2).map(g=>(
-                        <div key={g.id} style={{background:'#f8fafc',padding:'12px',borderRadius:'10px',border:'1px solid var(--border)'}}>
-                          <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',marginBottom:'4px'}}>
-                            <b>{g.name}</b>
-                            <span style={{fontWeight:700,color:'#0d9488'}}>{g.progress}%</span>
-                          </div>
-                          <div className="progress-track" style={{height:'6px'}}>
-                            <div className="progress-bar" style={{width:`${Math.min(100,g.progress)}%`,background:g.color||'#10b981'}}/>
+                  ))}
+                </div>
+              </section>
+            </div>
+
+            {/* 3. LOWER 2-COLUMN GRID: Contas a Pagar (próximos) + Cartões de Crédito */}
+            <div className="dashboard-grid-2col">
+              <section className="panel">
+                <div className="panel-title">
+                  <h2>Contas a Pagar (Próximos Vencimentos)</h2>
+                  <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={handleNewCommitment}>+ Compromisso</button>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+                  {upcomingPayables.length === 0 ? (
+                    <div style={{padding:'20px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px'}}>Nenhuma conta a pagar pendente no período.</div>
+                  ) : (
+                    upcomingPayables.map(c => (
+                      <div key={c.id} className="payable-quick-item">
+                        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                          <div style={{width:'8px',height:'8px',borderRadius:'50%',background:'#ef4444'}}/>
+                          <div>
+                            <div style={{fontSize:'13px',fontWeight:700,color:'var(--text-main)'}}>{c.description}</div>
+                            <div style={{fontSize:'11px',color:'var(--text-muted)'}}>
+                              {c.entityName ? `${c.entityName} · ` : ''}Vencimento: {new Date(c.dueDate).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'})}
+                            </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                          <b style={{fontSize:'14px',color:'#ef4444'}}>{money(c.amount)}</b>
+                          <button
+                            className="secondary"
+                            style={{fontSize:'11px',padding:'4px 10px',background:'#ecfdf5',borderColor:'#a7f3d0',color:'#059669',fontWeight:700}}
+                            onClick={() => { setSelectedItem(c); setModal('settle_commitment'); }}
+                          >
+                            Liquidar
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
+              <section className="panel">
+                <div className="panel-title">
+                  <h2>Cartões de Crédito</h2>
+                  <div style={{display:'flex',gap:'6px'}}>
+                    <button className="secondary" style={{fontSize:'11px',padding:'5px 10px'}} onClick={handleNewPurchase}><CreditCard size={13}/> Compra</button>
+                    <button className="secondary" style={{fontSize:'11px',padding:'5px 10px'}} onClick={()=>setTab('cards')}>Ver Todos</button>
+                  </div>
+                </div>
+                <div className="card-summary-row">
+                  {(cards.length > 0 ? cards : DEMO_CARDS).map(card => {
+                    const limit = Number(card.limit);
+                    const avail = Number(card.availableLimit);
+                    const used = Math.max(0, limit - avail);
+                    const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                    return (
+                      <div key={card.id} className="card-summary-card">
+                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                            <div style={{width:'10px',height:'10px',borderRadius:'50%',background:card.color||'#0d9488'}}/>
+                            <b style={{fontSize:'13px',color:'var(--text-main)'}}>{card.name}</b>
+                          </div>
+                          <span style={{fontSize:'12px',fontWeight:700,color:pct>80?'#ef4444':'#0d9488'}}>
+                            {card.currentInvoice ? money(card.currentInvoice.totalAmount) : money(used)}
+                          </span>
+                        </div>
+                        <div className="progress-track" style={{height:'6px'}}>
+                          <div className="progress-bar" style={{width:`${pct}%`,background:pct>80?'#ef4444':pct>50?'#f59e0b':'#10b981'}}/>
+                        </div>
+                        <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'var(--text-muted)'}}>
+                          <span>Disponível: <b style={{color:'var(--text-secondary)'}}>{money(card.availableLimit)}</b></span>
+                          <span>Limite: <b>{money(card.limit)}</b></span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{background:'#f8fafc',padding:'10px 14px',borderRadius:'8px',border:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'12px'}}>
+                    <span style={{color:'var(--text-secondary)'}}>Limite Total Contratado:</span>
+                    <b style={{color:'var(--text-main)',fontSize:'14px'}}>
+                      {money((cards.length > 0 ? cards : DEMO_CARDS).reduce((s, c) => s + Number(c.limit || 0), 0))}
+                    </b>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {/* 4. BOTTOM PANEL: Metas Financeiras (Full Width) */}
+            <section className="panel">
+              <div className="panel-title">
+                <h2>Metas Financeiras & Objetivos</h2>
+                <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={handleNewGoal}><Plus size={14}/> Nova Meta</button>
               </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:'16px'}}>
+                {(goals.length > 0 ? goals : DEMO_GOALS).map(g => (
+                  <div key={g.id} className="goal-card" style={{margin:0}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <div style={{width:'28px',height:'28px',borderRadius:'8px',background:`${g.color||'#10b981'}20`,color:g.color||'#10b981',display:'grid',placeItems:'center'}}>
+                          <Target size={15}/>
+                        </div>
+                        <b style={{fontSize:'13px',color:'var(--text-main)'}}>{g.name}</b>
+                      </div>
+                      <span className="pill" style={{background:'#ecfdf5',color:'#059669',fontWeight:700}}>{g.progress}%</span>
+                    </div>
+                    <div className="progress-track" style={{height:'8px',margin:'8px 0'}}>
+                      <div className="progress-bar" style={{width:`${Math.min(100,g.progress)}%`,background:g.color||'#10B981'}}/>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'12px'}}>
+                      <span style={{color:'var(--text-secondary)'}}>
+                        {money(g.currentAmount)} <span style={{color:'var(--text-muted)'}}>/ {money(g.targetAmount)}</span>
+                      </span>
+                      <button
+                        className="secondary"
+                        style={{fontSize:'11px',padding:'4px 10px',background:'#f0fdfa',borderColor:'#99f6e4',color:'#0f766e',fontWeight:700}}
+                        onClick={() => { setSelectedItem(g); setModal('deposit_goal'); }}
+                      >
+                        + Aporte
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* 5. OPERATIONAL OVERVIEW & VINA IA DIAGNOSIS */}
+            <div className="dashboard-grid">
+              <section className="panel">
+                <div className="panel-title">
+                  <h2>Últimas Movimentações Financeiras</h2>
+                  <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>setTab('entries')}>Ver todas</button>
+                </div>
+                {entries.length===0?<Empty text="Nenhuma movimentação registrada no perfil."/>:(
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Status</th><th>Valor</th></tr></thead>
+                      <tbody>
+                        {entries.slice(0,5).map(e=>(
+                          <tr key={e.id}>
+                            <td>{new Date(e.occurredAt).toLocaleDateString('pt-BR',{timeZone:'UTC'})}</td>
+                            <td><b>{e.description}</b></td>
+                            <td>{e.account.name}</td>
+                            <td>
+                              <span className="pill" style={{
+                                background:e.status==='POSTED'?'#ecfdf5':e.status==='SCHEDULED'?'#fffbeb':'#fef2f2',
+                                color:e.status==='POSTED'?'#059669':e.status==='SCHEDULED'?'#d97706':'#ef4444'
+                              }}>
+                                {e.status==='POSTED'?'Realizado':e.status==='SCHEDULED'?'Previsto':'Estornado'}
+                              </span>
+                            </td>
+                            <td className={['INCOME','TRANSFER_IN'].includes(e.type)?'positive':'negative'}>
+                              {['INCOME','TRANSFER_IN'].includes(e.type)?'+':'−'} {money(e.amount)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+
+              <section className="panel" style={{borderLeft:'4px solid #0d9488'}}>
+                <div className="panel-title" style={{marginBottom:'12px'}}>
+                  <h2>VINA IA · Diagnóstico</h2>
+                  <button className="secondary" style={{fontSize:'11px',padding:'4px 8px'}} onClick={()=>setTab('advisor')}>Abrir</button>
+                </div>
+                <div style={{background:'#f0fdfa',padding:'16px',borderRadius:'12px',border:'1px solid #99f6e4',marginBottom:'12px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'8px',fontWeight:700,color:'#0f766e',marginBottom:'6px'}}>
+                    <Sparkles size={16}/><span>Consultor Ativo</span>
+                  </div>
+                  <p style={{fontSize:'12px',color:'#134e4a',lineHeight:1.5,margin:0}}>
+                    Seu fluxo operacional monitora receitas, faturas de cartão e compromissos dos próximos 90 dias com projeção segura de gastos.
+                  </p>
+                </div>
+                <button className="primary" style={{width:'100%',padding:'10px',fontSize:'12px'}} onClick={()=>setTab('advisor')}>
+                  <Sparkles size={14}/> Fazer Pergunta ao Consultor
+                </button>
+              </section>
             </div>
           </>}
 
@@ -1258,6 +1541,38 @@ function App(){
               </div>
             )}
           </section>}
+
+          {tab==='categories'&&(
+            <section className="panel">
+              <div className="panel-title">
+                <h2>Categorias Financeiras Operacionais</h2>
+                <button className="secondary" onClick={handleNewCategory}><Plus size={15}/> Nova Categoria</button>
+              </div>
+              <p className="muted">Organize suas receitas e despesas por categorias para acompanhamento orçamentário detalhado.</p>
+              <div className="grid-cards">
+                <div className="budget-card" style={{gridColumn:'1 / -1'}}>
+                  <h3 style={{fontSize:'15px',fontWeight:700,marginBottom:'12px',color:'#10b981'}}>Receitas</h3>
+                  <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
+                    {categories.filter(c=>c.type==='INCOME').map(c=>(
+                      <span key={c.id} className="pill" style={{background:'#ecfdf5',color:'#059669',padding:'8px 14px',fontSize:'13px',borderRadius:'8px'}}>
+                        • {c.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="budget-card" style={{gridColumn:'1 / -1'}}>
+                  <h3 style={{fontSize:'15px',fontWeight:700,marginBottom:'12px',color:'#ef4444'}}>Despesas</h3>
+                  <div style={{display:'flex',gap:'10px',flexWrap:'wrap'}}>
+                    {categories.filter(c=>c.type==='EXPENSE').map(c=>(
+                      <span key={c.id} className="pill" style={{background:'#fef2f2',color:'#dc2626',padding:'8px 14px',fontSize:'13px',borderRadius:'8px'}}>
+                        • {c.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           {tab==='goals'&&<section className="panel">
             <div className="panel-title">
@@ -1303,6 +1618,71 @@ function App(){
               </div>
             )}
           </section>}
+
+          {tab==='investments'&&(
+            <section className="panel">
+              <div className="panel-title">
+                <h2>Carteira de Investimentos & Patrimônio</h2>
+                <button className="secondary" onClick={handleNewInvestment}><Plus size={15}/> Novo Ativo</button>
+              </div>
+              <p className="muted">Acompanhe seus ativos de renda fixa, ações, fundos imobiliários e patrimônio líquido em evolução.</p>
+
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:'16px',marginBottom:'24px'}}>
+                <div style={{background:'#f0fdfa',padding:'16px',borderRadius:'12px',border:'1px solid #99f6e4'}}>
+                  <div style={{fontSize:'12px',color:'#0f766e',fontWeight:600}}>Patrimônio em Investimentos</div>
+                  <div style={{fontSize:'24px',fontWeight:800,color:'#0f766e',marginTop:'4px'}}>
+                    {money(investments.reduce((sum,i)=>sum+Number(i.currentAmount||0),0))}
+                  </div>
+                </div>
+                <div style={{background:'#f8fafc',padding:'16px',borderRadius:'12px',border:'1px solid var(--border)'}}>
+                  <div style={{fontSize:'12px',color:'var(--text-secondary)',fontWeight:600}}>Total Aportado Original</div>
+                  <div style={{fontSize:'24px',fontWeight:800,color:'var(--text-main)',marginTop:'4px'}}>
+                    {money(investments.reduce((sum,i)=>sum+Number(i.initialAmount||0),0))}
+                  </div>
+                </div>
+                <div style={{background:'#ecfdf5',padding:'16px',borderRadius:'12px',border:'1px solid #a7f3d0'}}>
+                  <div style={{fontSize:'12px',color:'#065f46',fontWeight:600}}>Rentabilidade Global Estimada</div>
+                  <div style={{fontSize:'24px',fontWeight:800,color:'#059669',marginTop:'4px'}}>
+                    {(() => {
+                      const init = investments.reduce((sum,i)=>sum+Number(i.initialAmount||0),0);
+                      const curr = investments.reduce((sum,i)=>sum+Number(i.currentAmount||0),0);
+                      if (init <= 0) return '0.0%';
+                      const yieldPct = ((curr - init) / init) * 100;
+                      return `+${yieldPct.toFixed(1)}% (${money(curr - init)})`;
+                    })()}
+                  </div>
+                </div>
+              </div>
+
+              {investments.length === 0 ? <Empty text="Nenhum investimento cadastrado."/> : (
+                <div className="grid-cards">
+                  {investments.map(inv => (
+                    <div key={inv.id} className="goal-card">
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'8px'}}>
+                        <div>
+                          <span className="pill" style={{fontSize:'11px',marginBottom:'6px'}}>{inv.type}</span>
+                          <h3 style={{fontSize:'16px',fontWeight:800,margin:'4px 0'}}>{inv.name}</h3>
+                          <div style={{fontSize:'12px',color:'var(--text-secondary)'}}>{inv.institution || 'Custodiado'}</div>
+                        </div>
+                        <span className="pill" style={{background:'#ecfdf5',color:'#059669',fontWeight:700}}>
+                          {inv.yieldRate || 'Ativo'}
+                        </span>
+                      </div>
+                      <div style={{marginTop:'12px',borderTop:'1px solid var(--border-light)',paddingTop:'10px',display:'flex',justifyContent:'space-between',alignItems:'flex-end'}}>
+                        <div>
+                          <div style={{fontSize:'11px',color:'var(--text-muted)'}}>Posição Atual:</div>
+                          <div style={{fontSize:'18px',fontWeight:800,color:'var(--text-main)'}}>{money(inv.currentAmount)}</div>
+                        </div>
+                        <button className="icon-button" title="Excluir Ativo" onClick={()=>handleDeleteInvestment(inv.id)}>
+                          <Trash2 size={15} color="#ef4444"/>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
           {tab==='budgets'&&<section className="panel">
             <div className="panel-title">
@@ -1596,7 +1976,9 @@ function App(){
               settle_commitment:'Liquidar compromisso',
               goal:'Nova meta financeira',
               deposit_goal:'Fazer aporte na meta',
-              budget:'Novo orçamento por categoria'
+              budget:'Novo orçamento por categoria',
+              category:'Nova categoria financeira',
+              investment:'Novo investimento'
             } as Record<string,string>)[modal]||'Dados'}</h2>
             <button className="close" onClick={()=>{setModal('');setError('');}}>×</button>
           </div>
@@ -1648,7 +2030,7 @@ function App(){
                 </select>
               </label>
               <label>Descrição
-                <input name="description" required placeholder="Ex.: Supermercado, Salário, Energia..."/>
+                <input name="description" required placeholder="Ex.: Supermercado Mensal, Salário, Conta de Luz..."/>
               </label>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
                 <label>Valor em Reais (R$)
@@ -1658,9 +2040,24 @@ function App(){
                   <input name="date" required type="date" defaultValue={new Date().toLocaleDateString('en-CA')}/>
                 </label>
               </div>
-              <label>Categoria (opcional)
-                <input name="category" placeholder="Ex.: Alimentação, Moradia, Transporte, Lazer..."/>
-              </label>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Categoria
+                  <select name="category">
+                    <option value="">Selecione a categoria...</option>
+                    {categories.map(c => <option key={c.id} value={c.name}>{c.name} ({c.type === 'INCOME' ? 'Receita' : 'Despesa'})</option>)}
+                  </select>
+                </label>
+                <label>Forma de Pagamento
+                  <select name="paymentMethod">
+                    <option value="PIX">PIX</option>
+                    <option value="Boleto">Boleto Bancário</option>
+                    <option value="Cartão de Crédito">Cartão de Crédito</option>
+                    <option value="Cartão de Débito">Cartão de Débito</option>
+                    <option value="Transferência">Transferência Bancária</option>
+                    <option value="Dinheiro">Dinheiro em Espécie</option>
+                  </select>
+                </label>
+              </div>
               <label>Observações (opcional)
                 <textarea name="notes" rows={2} placeholder="Anotações complementares..." style={{width:'100%',padding:'8px',borderRadius:'8px',border:'1px solid #cbd5e1',fontSize:'13px'}}/>
               </label>
@@ -1727,6 +2124,44 @@ function App(){
             {modal==='budget'&&<>
               <label>Categoria de gastos<input name="categoryName" required placeholder="Ex.: Alimentação & Mercado, Transporte, Moradia"/></label>
               <label>Teto mensal planejado (R$)<input name="plannedAmount" required type="number" min="1" step="0.01" placeholder="2500.00"/></label>
+            </>}
+            {modal==='category'&&<>
+              <label>Nome da Categoria<input name="name" required placeholder="Ex.: Alimentação, Educação, Salário, Investimentos"/></label>
+              <label>Tipo de Categoria
+                <select name="type">
+                  <option value="EXPENSE">Despesa (-)</option>
+                  <option value="INCOME">Receita (+)</option>
+                </select>
+              </label>
+            </>}
+            {modal==='investment'&&<>
+              <label>Nome do Investimento / Ativo<input name="name" required placeholder="Ex.: Tesouro Selic 2029, CDB 120% CDI, BBAS3, MXRF11"/></label>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Tipo de Ativo
+                  <select name="type">
+                    <option value="Renda Fixa">Renda Fixa (CDB/Tesouro)</option>
+                    <option value="Ações">Ações & ETFs</option>
+                    <option value="FIIs">Fundos Imobiliários (FIIs)</option>
+                    <option value="Cripto">Criptomoedas</option>
+                    <option value="Previdência">Previdência Privada</option>
+                    <option value="Outros">Outros Ativos</option>
+                  </select>
+                </label>
+                <label>Instituição / Corretora
+                  <input name="institution" placeholder="Ex.: XP, NuInvest, BTG"/>
+                </label>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Valor Inicial Aplicado (R$)
+                  <input name="initialAmount" required type="number" min="0.01" step="0.01" placeholder="1000.00"/>
+                </label>
+                <label>Valor Atual / Saldo (R$)
+                  <input name="currentAmount" required type="number" min="0.01" step="0.01" placeholder="1050.00"/>
+                </label>
+              </div>
+              <label>Rentabilidade / Indexador (opcional)
+                <input name="yieldRate" placeholder="Ex.: 100% CDI, IPCA + 6,5% a.a."/>
+              </label>
             </>}
             {modal==='transfer'&&<>
               <label>Conta de origem<select name="fromAccount" required>{accounts.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select></label>

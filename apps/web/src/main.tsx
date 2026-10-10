@@ -583,6 +583,16 @@ function App(){
   const [entrySearch,setEntrySearch]=useState('');
   const [entryTypeFilter,setEntryTypeFilter]=useState('ALL');
   const [entryStatusFilter,setEntryStatusFilter]=useState('ALL');
+  const [destinationAccounts,setDestinationAccounts]=useState<Account[]>([]);
+  const [transferDestination,setTransferDestination]=useState('');
+  const [notice,setNotice]=useState('');
+
+  useEffect(()=>{
+    let live=true;
+    if(modal!=='transfer'||!token||!transferDestination){setDestinationAccounts([]);return;}
+    api<Account[]>(`/profiles/${transferDestination}/accounts`,token).then(data=>{if(live)setDestinationAccounts(data);}).catch(e=>{if(live){setDestinationAccounts([]);setError(e.message);}});
+    return ()=>{live=false;};
+  },[modal,transferDestination,token]);
 
   useEffect(()=>{
     fetch('/api/welcome').then(r=>r.json()).then(d=>{
@@ -843,6 +853,7 @@ function App(){
         },'PUT');
         setEditingEntry(null);
       }else if(modal==='transfer'){
+        if(!destinationAccounts.some(a=>a.id===v('toAccount')))throw new Error('Selecione uma conta de destino válida.');
         await api('/transfers',token,{fromProfileId:selected,fromAccountId:v('fromAccount'),toProfileId:v('toProfile'),toAccountId:v('toAccount'),amount:v('amount'),description:v('description')});
       }else if(modal==='commitment'){
         await api(`/profiles/${selected}/commitments`,token,{type:v('type'),description:v('description'),amount:v('amount'),dueDate:new Date(v('dueDate')+'T12:00:00').toISOString(),entityName:v('entityName'),category:v('category'),isRecurring:v('isRecurring')==='true'});
@@ -857,8 +868,11 @@ function App(){
         const refMonth=`${now.getUTCFullYear()}-${String(now.getUTCMonth()+1).padStart(2,'0')}`;
         await api(`/profiles/${selected}/budgets`,token,{referenceMonth:refMonth,categoryName:v('categoryName'),plannedAmount:v('plannedAmount')});
       }
+      setNotice('Operação confirmada pela API. Dados atualizados.');
       setModal('');
       setSelectedItem(null);
+      setTransferDestination('');
+      setDestinationAccounts([]);
       load();
     }catch(ex){
       setError((ex as Error).message);
@@ -944,10 +958,11 @@ function App(){
 
   return (
     <div className="app">
+      {notice&&<div role="status" className="operation-notice" onClick={()=>setNotice('')}><CheckCircle2 size={18}/>{notice}<button type="button" aria-label="Fechar aviso">×</button></div>}
       <aside className={`sidebar ${collapsed?'collapsed':''}`}>
         <div className="brand">
           <div className="brand-icon">V</div>
-          {!collapsed&&<div><h1>VINA FINACE</h1><span>ERP Pessoal & Familiar</span></div>}
+          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.2 · Cadastros assistidos</span></div>}
         </div>
 
         <div className="sidebar-scroll">
@@ -1715,8 +1730,8 @@ function App(){
             </>}
             {modal==='transfer'&&<>
               <label>Conta de origem<select name="fromAccount" required>{accounts.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select></label>
-              <label>Perfil de destino<select name="toProfile" required>{profiles.filter(p=>p.id!==selected).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-              <label>ID da conta de destino<input name="toAccount" required placeholder="UUID da conta"/></label>
+              <label>Perfil de destino<select name="toProfile" required value={transferDestination} onChange={e=>setTransferDestination(e.target.value)}><option value="">Selecione o perfil de destino</option>{profiles.filter(p=>p.id!==selected).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+              <label>Conta de destino<select name="toAccount" required disabled={!destinationAccounts.length}><option value="">{transferDestination?(destinationAccounts.length?'Selecione a conta':'Nenhuma conta cadastrada no perfil de destino'):'Selecione primeiro o perfil'}</option>{destinationAccounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
               <label>Descrição<input name="description" required defaultValue="Transferência entre perfis"/></label>
               <label>Valor (R$)<input name="amount" required type="number" min="0.01" step="0.01"/></label>
             </>}

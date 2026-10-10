@@ -16,7 +16,12 @@ type CashflowItem={month:string,income:string,expense:string,obligations:string,
 type AdvisorData={score:number,status:string,safeMonthlySpend:string,threeMonthSurplus:string,diagnosis:string,actionPlan:string[],aiGenerated:boolean};
 type Dash={income:string,expense:string,result:string,balance:string,projectedBalance?:string,scheduledIncome?:string,scheduledExpense?:string,profileCount:number,accountCount:number};
 
-const money=(value:string|number)=>Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const money=(value:string|number)=>{
+  const num=Number(value||0);
+  if(isNaN(num)) return 'R$ 0,00';
+  const formatted=Math.abs(num).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  return num<0?`- ${formatted}`:formatted;
+};
 const API_BASE=(import.meta.env.VITE_API_URL||'').replace(/\/$/,'')+'/api';
 const CATEGORY_COLORS = ['#10b981', '#0d9488', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899', '#64748b', '#06b6d4'];
 
@@ -665,7 +670,12 @@ function App(){
   const [transferDestination,setTransferDestination]=useState('');
   const [notice,setNotice]=useState('');
   const [entryKind,setEntryKind]=useState<'INCOME'|'EXPENSE'>('EXPENSE');
-  const [daysRange,setDaysRange]=useState<7|14>(14);
+  const [daysRange,setDaysRange]=useState<number>(14);
+  const [lateFeeInvoice,setLateFeeInvoice]=useState<any|null>(null);
+  const [lateFeeManualAmount,setLateFeeManualAmount]=useState<string>('4000.00');
+  const [lateFeeDueDate,setLateFeeDueDate]=useState<string>(new Date(Date.now()-10*86400000).toLocaleDateString('en-CA'));
+  const [lateFeePayDate,setLateFeePayDate]=useState<string>(new Date().toLocaleDateString('en-CA'));
+  const [lateFeeRevolvingRate,setLateFeeRevolvingRate]=useState<number>(12.0);
 
   useEffect(()=>{
     document.documentElement.setAttribute('data-theme',theme);
@@ -720,6 +730,7 @@ function App(){
     d.setDate(d.getDate() - (daysRange - 1 - i));
     const dayStr = String(d.getDate()).padStart(2, '0');
     const dayMonth = `${dayStr}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const weekDay = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][d.getDay()];
     const dateIso = d.toISOString().slice(0, 10);
     const daySpent = entries
       .filter(e => e.status === 'POSTED' && e.type === 'EXPENSE' && (e.occurredAt || '').slice(0, 10) === dateIso)
@@ -727,14 +738,15 @@ function App(){
     return {
       day: dayStr,
       dayMonth,
+      weekDay,
       date: dateIso,
       amount: daySpent
     };
   });
 
   const sortedBySpend = [...dailyExpenses].filter(d => d.amount > 0).sort((a, b) => b.amount - a.amount);
-  const maxSpendDay = sortedBySpend[0] || (dailyExpenses[0] ? { ...dailyExpenses[0], amount: 0 } : { amount: 0, dayMonth: '--' });
-  const minSpendDay = [...sortedBySpend].reverse()[0] || (dailyExpenses[0] ? { ...dailyExpenses[0], amount: 0 } : { amount: 0, dayMonth: '--' });
+  const maxSpendDay = sortedBySpend[0] || (dailyExpenses[0] ? { ...dailyExpenses[0], amount: 0, weekDay: '—' } : { amount: 0, dayMonth: '--', weekDay: '—' });
+  const minSpendDay = [...sortedBySpend].reverse()[0] || (dailyExpenses[0] ? { ...dailyExpenses[0], amount: 0, weekDay: '—' } : { amount: 0, dayMonth: '--', weekDay: '—' });
   const maxDailyValue = Math.max(1, ...dailyExpenses.map(d => d.amount));
   const totalDailySpent = dailyExpenses.reduce((s, d) => s + d.amount, 0);
   const avgDailySpent = (totalDailySpent / daysRange) || 0;
@@ -744,6 +756,81 @@ function App(){
   const pendingPayables = commitments.filter(c => c.type === 'PAYABLE' && c.status === 'PENDING').reduce((s, c) => s + Number(c.amount), 0)
     + entries.filter(e => e.status === 'SCHEDULED' && e.type === 'EXPENSE').reduce((s, e) => s + Number(e.amount), 0);
   const projectedBank = bankBalance + pendingReceivables - pendingPayables;
+
+  const getHorizonForecast = (daysAhead: number) => {
+    const horizonDate = new Date();
+    horizonDate.setDate(horizonDate.getDate() + daysAhead);
+    const horizonIso = horizonDate.toISOString().slice(0, 10);
+
+    const rec = commitments
+      .filter(c => c.type === 'RECEIVABLE' && c.status === 'PENDING' && (c.dueDate || '').slice(0, 10) <= horizonIso)
+      .reduce((s, c) => s + Number(c.amount), 0)
+      + entries
+      .filter(e => e.status === 'SCHEDULED' && (e.type === 'INCOME' || e.type === 'TRANSFER_IN') && (e.occurredAt || '').slice(0, 10) <= horizonIso)
+      .reduce((s, e) => s + Number(e.amount), 0);
+
+    const pay = commitments
+      .filter(c => c.type === 'PAYABLE' && c.status === 'PENDING' && (c.dueDate || '').slice(0, 10) <= horizonIso)
+      .reduce((s, c) => s + Number(c.amount), 0)
+      + entries
+      .filter(e => e.status === 'SCHEDULED' && (e.type === 'EXPENSE' || e.type === 'TRANSFER_OUT') && (e.occurredAt || '').slice(0, 10) <= horizonIso)
+      .reduce((s, e) => s + Number(e.amount), 0);
+
+    const projected = bankBalance + rec - pay;
+    return {
+      days: daysAhead,
+      label: daysAhead === 0 ? 'Hoje' : `${daysAhead} dias`,
+      rec,
+      pay,
+      projected
+    };
+  };
+
+  const forecastHorizons = [
+    getHorizonForecast(0),
+    getHorizonForecast(7),
+    getHorizonForecast(15),
+    getHorizonForecast(30),
+    getHorizonForecast(60),
+    getHorizonForecast(90),
+  ];
+  const negativeHorizon = forecastHorizons.find(h => h.projected < 0 && h.days > 0);
+
+  const calculateLateFees = () => {
+    const origAmount = Number(lateFeeInvoice?.totalAmount || lateFeeManualAmount || 0);
+    const due = new Date(lateFeeInvoice?.dueDate || lateFeeDueDate);
+    const pay = new Date(lateFeePayDate);
+    const diffDays = Math.max(0, Math.ceil((pay.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)));
+
+    if (diffDays <= 0 || origAmount <= 0) {
+      return {
+        daysLate: 0,
+        fine: 0,
+        mora: 0,
+        rotativo: 0,
+        iof: 0,
+        totalFees: 0,
+        totalDue: origAmount
+      };
+    }
+
+    const fine = origAmount * 0.02;
+    const mora = origAmount * (0.01 / 30) * diffDays;
+    const rotativo = origAmount * ((lateFeeRevolvingRate / 100) / 30) * diffDays;
+    const iof = (origAmount * 0.0038) + (origAmount * 0.000082 * diffDays);
+    const totalFees = fine + mora + rotativo + iof;
+    const totalDue = origAmount + totalFees;
+
+    return {
+      daysLate: diffDays,
+      fine,
+      mora,
+      rotativo,
+      iof,
+      totalFees,
+      totalDue
+    };
+  };
 
   useEffect(()=>{
     if(!token)return;
@@ -858,6 +945,56 @@ function App(){
     setEntryKind(kind);
     setSelectedItem(null);
     setModal('entry');
+  };
+
+  const handleSalaryEntry=()=>{
+    setError('');
+    setNotice('');
+    if(!profiles||profiles.length===0){
+      setNotice('Cadastre seu primeiro perfil antes de registrar o salário.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'&&profiles.length>0){
+      setSelected(profiles[0].id);
+    }
+    if(!accounts||accounts.length===0){
+      setNotice('Cadastre uma conta bancária para receber o salário.');
+      setModal('account');
+      return;
+    }
+    setModal('salary');
+  };
+
+  const handleRechargeBenefit=()=>{
+    setError('');
+    setNotice('');
+    if(!profiles||profiles.length===0){
+      setNotice('Cadastre seu primeiro perfil antes de recarregar benefícios.');
+      setModal('profile');
+      return;
+    }
+    if(selected==='all'&&profiles.length>0){
+      setSelected(profiles[0].id);
+    }
+    setModal('recharge_benefit');
+  };
+
+  const handleLateFeesSim=(inv?:any)=>{
+    setError('');
+    const defaultInv = inv || (cards.find(c => c.currentInvoice)?.currentInvoice || null);
+    if(defaultInv) {
+      setLateFeeInvoice(defaultInv);
+      setLateFeeManualAmount(String(defaultInv.totalAmount || '4000.00'));
+      setLateFeeDueDate(defaultInv.dueDate ? new Date(defaultInv.dueDate).toLocaleDateString('en-CA') : new Date().toLocaleDateString('en-CA'));
+    } else {
+      setLateFeeInvoice(null);
+      setLateFeeManualAmount('4000.00');
+      setLateFeeDueDate(new Date(Date.now() - 10 * 86400000).toLocaleDateString('en-CA'));
+    }
+    setLateFeePayDate(new Date().toLocaleDateString('en-CA'));
+    setLateFeeRevolvingRate(12.0);
+    setModal('late_fees');
   };
 
   const handleNewCard=()=>{
@@ -1034,6 +1171,42 @@ function App(){
         await api(`/cards/${v('cardId')}/purchases`,token,{description:v('description'),totalAmount:v('amount'),totalInstallments:Number(v('installments')||1),purchaseDate:new Date(v('date')+'T12:00:00').toISOString()});
       }else if(modal==='pay_invoice'){
         await api(`/cards/invoices/${v('invoiceId')}/pay`,token,{accountId:v('accountId')});
+      }else if(modal==='salary'){
+        const amt=Number(v('amount'));
+        if(isNaN(amt)||amt<=0) throw new Error('O valor do salário deve ser maior que zero (R$ 0,01).');
+        if(!v('accountId')) throw new Error('Selecione uma conta bancária para receber o salário.');
+        const targetAccount = accounts.find(a => a.id === v('accountId'));
+        const targetProfileId = targetAccount?.profileId || (selected === 'all' ? profiles[0]?.id : selected);
+        if(!targetProfileId) throw new Error('Perfil não encontrado para o recebimento.');
+        await api('/entries',token,{
+          profileId:targetProfileId,
+          accountId:v('accountId'),
+          type:'INCOME',
+          status:v('status')||'POSTED',
+          amount:amt.toFixed(2),
+          description:v('description').trim() || 'Salário Mensal',
+          category:'Salário',
+          paymentMethod:'Transferência Bancária',
+          occurredAt:new Date(v('date')+'T12:00:00').toISOString()
+        });
+      }else if(modal==='recharge_benefit'){
+        const amt=Number(v('amount'));
+        if(isNaN(amt)||amt<=0) throw new Error('O valor da recarga deve ser maior que zero (R$ 0,01).');
+        if(!v('accountId')) throw new Error('Selecione a carteira do benefício para recarga.');
+        const targetAccount = accounts.find(a => a.id === v('accountId'));
+        const targetProfileId = targetAccount?.profileId || (selected === 'all' ? profiles[0]?.id : selected);
+        if(!targetProfileId) throw new Error('Perfil não encontrado para o benefício.');
+        await api('/entries',token,{
+          profileId:targetProfileId,
+          accountId:v('accountId'),
+          type:'INCOME',
+          status:'POSTED',
+          amount:amt.toFixed(2),
+          description:v('description').trim() || 'Recarga Mensal de Benefício',
+          category:'Benefícios',
+          paymentMethod:'Crédito em Benefício',
+          occurredAt:new Date(v('date')+'T12:00:00').toISOString()
+        });
       }else if(modal==='entry'){
         const amt=Number(v('amount'));
         if(isNaN(amt)||amt<=0){
@@ -1244,12 +1417,12 @@ function App(){
       <aside className={`sidebar ${collapsed?'collapsed':''}`}>
         <div className="brand">
           <div className="brand-icon">V</div>
-          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.4 · Caixa & Benefícios</span></div>}
+          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.5 · Financeiro Diário</span></div>}
         </div>
 
         <div className="sidebar-scroll">
           {!collapsed&&<div className="nav-section-title">Operação & Caixa</div>}
-          <button className={`nav-item ${tab==='cash'?'active':''}`} onClick={()=>setTab('cash')} title="Meu Caixa Pessoal & Benefícios"><Wallet size={18}/>{!collapsed&&<span>Meu Caixa Pessoal</span>}</button>
+          <button className={`nav-item ${tab==='cash'?'active':''}`} onClick={()=>setTab('cash')} title="Meu Financeiro Diário"><Wallet size={18}/>{!collapsed&&<span>Meu Financeiro Diário</span>}</button>
           <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} title="Dashboard Executivo"><LayoutDashboard size={18}/>{!collapsed&&<span>Dashboard</span>}</button>
           <button className={`nav-item ${tab==='entries'?'active':''}`} onClick={()=>setTab('entries')} title="Central de Lançamentos"><ReceiptText size={18}/>{!collapsed&&<span>Lançamentos</span>}</button>
           <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>setTab('accounts')} title="Contas Bancárias & Vales"><Landmark size={18}/>{!collapsed&&<span>Contas & Vales</span>}</button>
@@ -1322,32 +1495,27 @@ function App(){
               <div className="panel-title">
                 <div>
                   <h2 style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                    <Wallet size={22} color="#0d9488"/> Meu Caixa Pessoal & Benefícios
+                    <Wallet size={22} color="#0d9488"/> Meu Financeiro Diário
                   </h2>
                   <span style={{fontSize:'13px',color:'var(--text-muted)'}}>
-                    Visão unificada de bancos, dinheiro e benefícios corporativos ({current ? current.name : 'Perfil Individual'})
+                    VINA FINACE • {current ? current.name : 'Perfil Pessoal'} — Salário, Caixa, Benefícios e Previsões
                   </span>
                 </div>
                 <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
-                  <button className="primary" onClick={()=>openCashEntry('INCOME')}>
-                    <ArrowDownRight size={16}/> Adicionar entrada
+                  <button className="primary" onClick={handleSalaryEntry} title="Registrar salário recebido na conta">
+                    <ArrowDownRight size={16}/> Receber salário
                   </button>
-                  <button className="secondary" onClick={()=>openCashEntry('EXPENSE')}>
-                    <ArrowUpRight size={16}/> Registrar saída
+                  <button className="secondary" onClick={()=>openCashEntry('EXPENSE')} title="Registrar despesa no caixa ou vale">
+                    <ArrowUpRight size={16}/> Registrar gasto
                   </button>
-                  <button className="secondary" onClick={handleNewAccount}>
-                    <Plus size={16}/> + Nova conta bancária
+                  <button className="secondary" onClick={handleRechargeBenefit} title="Recarregar benefício corporativo (acumulativo)">
+                    <Sparkles size={16}/> Recarregar vale
                   </button>
-                  <button className="secondary" onClick={()=>{
-                    handleNewAccount();
-                    setTimeout(()=>{
-                      const sel = document.getElementById('resource-type-select') as HTMLSelectElement;
-                      const inp = document.getElementById('account-name-input') as HTMLInputElement;
-                      if(sel){ sel.value = 'BENEFIT_MARKET'; }
-                      if(inp){ inp.value = 'Vale-Mercado'; }
-                    },50);
-                  }}>
-                    <Plus size={16}/> + Cadastrar benefício
+                  <button className="secondary" onClick={handleNewAccount} title="Cadastrar conta corrente, carteira ou benefício">
+                    <Plus size={16}/> Nova conta
+                  </button>
+                  <button className="secondary" onClick={()=>handleLateFeesSim()} title="Simular encargos de atraso de cartão de crédito">
+                    <CreditCard size={16}/> Taxa de Atraso Cartão
                   </button>
                 </div>
               </div>
@@ -1370,60 +1538,44 @@ function App(){
                 </div>
               ) : (
                 <>
-                  {/* Top 6 KPI summary of personal resources */}
+                  {/* Top 8 KPI summary of personal resources */}
                   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(190px,1fr))',gap:'12px'}}>
                     <div className="metric">
                       <div className="metric-header">
-                        <span className="metric-label">Salário / Entradas</span>
-                        <div className="metric-icon-badge" style={{background:'#f0fdf4',color:'#16a34a'}}>+</div>
+                        <span className="metric-label">Dinheiro nas Contas</span>
+                        <div className="metric-icon-badge" style={{background:bankBalance<0?'#fef2f2':'#eff6ff',color:bankBalance<0?'#dc2626':'#2563eb'}}>
+                          <Landmark size={16}/>
+                        </div>
                       </div>
                       <div>
-                        <div className="metric-val positive" style={{fontSize:'22px'}}>{money(totalRealizedIncome)}</div>
-                        <div className="metric-sub" style={{color:'#16a34a'}}>Entradas confirmadas</div>
+                        <div className={`metric-val ${bankBalance<0?'negative-balance':''}`} style={{fontSize:'22px',color:bankBalance<0?'#dc2626':'#2563eb'}}>
+                          {money(bankBalance)}
+                        </div>
+                        <div className="metric-sub">
+                          {bankBalance<0 ? <span className="badge-negative">⚠️ Cheque especial / Devedor</span> : 'Saldos bancários e dinheiro'}
+                        </div>
                       </div>
                     </div>
 
                     <div className="metric">
                       <div className="metric-header">
-                        <span className="metric-label">Saídas do Caixa</span>
-                        <div className="metric-icon-badge" style={{background:'#fef2f2',color:'#dc2626'}}>−</div>
-                      </div>
-                      <div>
-                        <div className="metric-val negative" style={{fontSize:'22px'}}>{money(totalRealizedExpense)}</div>
-                        <div className="metric-sub" style={{color:'#dc2626'}}>Despesas pagas</div>
-                      </div>
-                    </div>
-
-                    <div className="metric">
-                      <div className="metric-header">
-                        <span className="metric-label">Saldo Bancário</span>
-                        <div className="metric-icon-badge" style={{background:'#eff6ff',color:'#2563eb'}}><Landmark size={16}/></div>
-                      </div>
-                      <div>
-                        <div className="metric-val" style={{fontSize:'22px',color:'#2563eb'}}>{money(bankBalance)}</div>
-                        <div className="metric-sub">Contas bancárias & dinheiro</div>
-                      </div>
-                    </div>
-
-                    <div className="metric">
-                      <div className="metric-header">
-                        <span className="metric-label">Saldo Vale-Mercado</span>
+                        <span className="metric-label">Vale-Mercado</span>
                         <div className="metric-icon-badge" style={{background:'#fefce8',color:'#ca8a04'}}>🛒</div>
                       </div>
                       <div>
                         <div className="metric-val" style={{fontSize:'22px',color:'#ca8a04'}}>{money(marketBalance)}</div>
-                        <div className="metric-sub">Alimentação & Mercado</div>
+                        <div className="metric-sub">Saldo acumulado</div>
                       </div>
                     </div>
 
                     <div className="metric">
                       <div className="metric-header">
-                        <span className="metric-label">Saldo Vale-Combustível</span>
+                        <span className="metric-label">Vale-Combustível</span>
                         <div className="metric-icon-badge" style={{background:'#fdf4ff',color:'#c026d3'}}>⛽</div>
                       </div>
                       <div>
                         <div className="metric-val" style={{fontSize:'22px',color:'#c026d3'}}>{money(fuelBalance)}</div>
-                        <div className="metric-sub">Combustível & Mobilidade</div>
+                        <div className="metric-sub">Saldo acumulado</div>
                       </div>
                     </div>
 
@@ -1434,37 +1586,78 @@ function App(){
                       </div>
                       <div>
                         <div className="metric-val" style={{fontSize:'24px',color:'#ffffff'}}>{money(totalAvailableResources)}</div>
-                        <div className="metric-sub" style={{color:'#ccfbf1'}}>Bancos + Vales corporativos</div>
+                        <div className="metric-sub" style={{color:'#ccfbf1'}}>Bancos + Vales acumulados</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Recebido no Mês</span>
+                        <div className="metric-icon-badge" style={{background:'#f0fdf4',color:'#16a34a'}}>+</div>
+                      </div>
+                      <div>
+                        <div className="metric-val positive" style={{fontSize:'22px'}}>{money(totalRealizedIncome)}</div>
+                        <div className="metric-sub" style={{color:'#16a34a'}}>Entradas confirmadas</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Gasto no Mês</span>
+                        <div className="metric-icon-badge" style={{background:'#fef2f2',color:'#dc2626'}}>−</div>
+                      </div>
+                      <div>
+                        <div className="metric-val negative" style={{fontSize:'22px'}}>{money(totalRealizedExpense)}</div>
+                        <div className="metric-sub" style={{color:'#dc2626'}}>Despesas efetivadas</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">A Pagar</span>
+                        <div className="metric-icon-badge" style={{background:'#fff7ed',color:'#ea580c'}}><Calendar size={16}/></div>
+                      </div>
+                      <div>
+                        <div className="metric-val" style={{fontSize:'22px',color:'#ea580c'}}>{money(pendingPayables)}</div>
+                        <div className="metric-sub">Compromissos pendentes</div>
+                      </div>
+                    </div>
+
+                    <div className="metric">
+                      <div className="metric-header">
+                        <span className="metric-label">Saldo Previsto</span>
+                        <div className="metric-icon-badge" style={{background:'#eff6ff',color:projectedBank>=0?'#0d9488':'#dc2626'}}><TrendingUp size={16}/></div>
+                      </div>
+                      <div>
+                        <div className={`metric-val ${projectedBank<0?'negative-balance':''}`} style={{fontSize:'22px',color:projectedBank>=0?'#0d9488':'#dc2626'}}>
+                          {money(projectedBank)}
+                        </div>
+                        <div className="metric-sub">Projeção no mês</div>
                       </div>
                     </div>
                   </div>
 
-                  {/* 2 Columns: Daily Spending Chart & Cash Forecast */}
+                  {/* 2 Columns: Daily Spending Chart & Multi-horizon Forecast */}
                   <div className="dashboard-grid-2col" style={{marginTop:'4px'}}>
                     {/* Column 1: Daily Spending */}
                     <div style={{background:'var(--bg-surface)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border)',padding:'20px'}}>
-                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'10px',flexWrap:'wrap',gap:'8px'}}>
                         <div>
                           <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Gastos Diários</h3>
-                          <span style={{fontSize:'12px',color:'var(--text-muted)'}}>Despesas registradas no caixa</span>
+                          <span style={{fontSize:'12px',color:'var(--text-muted)'}}>Despesas registradas por dia no calendário</span>
                         </div>
-                        <div style={{display:'flex',gap:'6px',background:'var(--bg-app)',padding:'3px',borderRadius:'8px',border:'1px solid var(--border)'}}>
-                          <button
-                            type="button"
-                            className={daysRange === 7 ? 'primary' : 'secondary'}
-                            style={{padding:'4px 10px',fontSize:'11px',borderRadius:'6px'}}
-                            onClick={()=>setDaysRange(7)}
-                          >
-                            7 dias
-                          </button>
-                          <button
-                            type="button"
-                            className={daysRange === 14 ? 'primary' : 'secondary'}
-                            style={{padding:'4px 10px',fontSize:'11px',borderRadius:'6px'}}
-                            onClick={()=>setDaysRange(14)}
-                          >
-                            14 dias
-                          </button>
+                        <div style={{display:'flex',gap:'4px',background:'var(--bg-app)',padding:'3px',borderRadius:'8px',border:'1px solid var(--border)'}}>
+                          {[7, 14, 15, 30].map(r => (
+                            <button
+                              key={r}
+                              type="button"
+                              className={daysRange === r ? 'primary' : 'secondary'}
+                              style={{padding:'4px 8px',fontSize:'11px',borderRadius:'6px'}}
+                              onClick={()=>setDaysRange(r)}
+                            >
+                              {r} dias
+                            </button>
+                          ))}
                         </div>
                       </div>
 
@@ -1473,12 +1666,13 @@ function App(){
                           const heightPct = Math.max(8, Math.round((d.amount / maxDailyValue) * 100));
                           const isMax = d.amount > 0 && d.amount === maxSpendDay.amount;
                           return (
-                            <div key={d.date} className="day-bar-group" title={`${d.dayMonth}: ${money(d.amount)}`}>
+                            <div key={d.date} className="day-bar-group" title={`${d.weekDay}, ${d.dayMonth}: ${money(d.amount)}`}>
                               <div
                                 className={`day-bar-fill ${isMax ? 'highlight' : ''}`}
                                 style={{height:`${heightPct}%`}}
                               />
-                              <span className="day-bar-label">{d.day}</span>
+                              <span className="day-bar-label" style={{fontSize:'10px'}}>{d.weekDay}</span>
+                              <span className="day-bar-label" style={{fontSize:'9px',color:'var(--text-muted)'}}>{d.day}</span>
                             </div>
                           );
                         })}
@@ -1488,32 +1682,32 @@ function App(){
                         <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--bg-app)',border:'1px solid var(--border)'}}>
                           <div style={{fontSize:'11px',color:'var(--text-muted)'}}>Maior Gasto:</div>
                           <div style={{fontSize:'15px',fontWeight:800,color:'#f59e0b'}}>{money(maxSpendDay.amount)}</div>
-                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{maxSpendDay.dayMonth}</div>
+                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{maxSpendDay.weekDay} · {maxSpendDay.dayMonth}</div>
                         </div>
                         <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--bg-app)',border:'1px solid var(--border)'}}>
                           <div style={{fontSize:'11px',color:'var(--text-muted)'}}>Menor Gasto:</div>
                           <div style={{fontSize:'15px',fontWeight:800,color:'#10b981'}}>{money(minSpendDay.amount)}</div>
-                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{minSpendDay.dayMonth}</div>
+                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>{minSpendDay.weekDay} · {minSpendDay.dayMonth}</div>
                         </div>
                         <div style={{padding:'10px 12px',borderRadius:'8px',background:'var(--bg-app)',border:'1px solid var(--border)'}}>
                           <div style={{fontSize:'11px',color:'var(--text-muted)'}}>Média Diária:</div>
                           <div style={{fontSize:'15px',fontWeight:800,color:'var(--text-main)'}}>{money(avgDailySpent)}</div>
-                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>por dia</div>
+                          <div style={{fontSize:'11px',color:'var(--text-secondary)'}}>por dia ({daysRange}d)</div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Column 2: Cash Forecast */}
+                    {/* Column 2: Cash Forecast & Multi-horizon Projections */}
                     <div style={{background:'var(--bg-surface)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border)',padding:'20px',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                       <div>
                         <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px'}}>
                           <TrendingUp size={18} color="#0d9488"/>
-                          <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Previsão de Caixa</h3>
+                          <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Previsões Futuras do Dinheiro</h3>
                         </div>
-                        <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+                        <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
                           <div className="forecast-row">
                             <span style={{color:'var(--text-muted)'}}>Saldo bancário atual</span>
-                            <span style={{fontWeight:700}}>{money(bankBalance)}</span>
+                            <span style={{fontWeight:700,color:bankBalance<0?'#dc2626':'inherit'}}>{money(bankBalance)}</span>
                           </div>
                           <div className="forecast-row">
                             <span style={{color:'#16a34a'}}>Recebimentos previstos</span>
@@ -1523,18 +1717,44 @@ function App(){
                             <span style={{color:'#dc2626'}}>Despesas previstas</span>
                             <span style={{fontWeight:700,color:'#dc2626'}}>− {money(pendingPayables)}</span>
                           </div>
-                          <div style={{borderTop:'1px dashed var(--border)',margin:'6px 0'}}/>
-                          <div className="forecast-row" style={{fontSize:'15px'}}>
-                            <span style={{fontWeight:700}}>Saldo bancário projetado</span>
-                            <span style={{fontWeight:800,color:projectedBank>=0?'#0d9488':'#dc2626',fontSize:'18px'}}>
+                          <div style={{borderTop:'1px dashed var(--border)',margin:'4px 0'}}/>
+                          <div className="forecast-row" style={{fontSize:'14px'}}>
+                            <span style={{fontWeight:700}}>Saldo projetado imediato</span>
+                            <span style={{fontWeight:800,color:projectedBank>=0?'#0d9488':'#dc2626',fontSize:'16px'}}>
                               {money(projectedBank)}
                             </span>
                           </div>
                         </div>
+
+                        {/* Multi-horizon Cards */}
+                        <div style={{marginTop:'14px'}}>
+                          <div style={{fontSize:'11px',fontWeight:700,color:'var(--text-secondary)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:'6px'}}>
+                            Projeções por Horizonte Temporal:
+                          </div>
+                          <div className="forecast-horizons">
+                            {forecastHorizons.map(h => (
+                              <div key={h.days} className="horizon-card">
+                                <span className="horizon-label">{h.label}</span>
+                                <span className={`horizon-val ${h.projected < 0 ? 'negative-balance' : ''}`} style={{color: h.projected < 0 ? '#dc2626' : 'var(--text-main)', fontSize:'14px'}}>
+                                  {money(h.projected)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {negativeHorizon&&(
+                          <div className="warning-alert-banner">
+                            <AlertTriangle size={18} color="#b45309" style={{flexShrink:0}}/>
+                            <div>
+                              <b>Alerta de Caixa:</b> Projeção de saldo insuficiente nos <b>{negativeHorizon.label}</b> ({money(negativeHorizon.projected)}). Providencie receitas ou postergue despesas.
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      <div style={{background:'#f0fdfa',border:'1px solid #99f6e4',padding:'12px',borderRadius:'10px',marginTop:'14px',fontSize:'12px',color:'#0f766e',lineHeight:1.5}}>
-                        <b>💡 Regra dos Benefícios:</b> Seus vales de alimentação e combustível são recursos acumuláveis para suas respectivas finalidades e estão protegidos do saldo de liquidação bancária.
+                      <div style={{background:'#f0fdfa',border:'1px solid #99f6e4',padding:'10px 12px',borderRadius:'10px',marginTop:'14px',fontSize:'12px',color:'#0f766e',lineHeight:1.4}}>
+                        <b>💡 Saldo Acumulativo:</b> O saldo não utilizado dos seus vales acumula para os meses seguintes, enquanto compras com vales não reduzem o caixa bancário.
                       </div>
                     </div>
                   </div>
@@ -1542,7 +1762,7 @@ function App(){
                   {/* Accounts & Benefit Balances Table */}
                   <div style={{background:'var(--bg-surface)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border)',padding:'20px'}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-                      <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Saldo por Conta & Benefício</h3>
+                      <h3 style={{fontSize:'16px',fontWeight:700,margin:0}}>Saldos por Conta & Benefício</h3>
                       <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={handleNewAccount}>
                         + Nova Conta ou Vale
                       </button>
@@ -1564,14 +1784,17 @@ function App(){
                             const badgeColor = isMarketBenefit(a) ? {bg:'#fefce8',fg:'#ca8a04'} : isFuelBenefit(a) ? {bg:'#fdf4ff',fg:'#c026d3'} : {bg:'#eff6ff',fg:'#2563eb'};
                             return (
                               <tr key={a.id}>
-                                <td><b>{a.name}</b></td>
+                                <td>
+                                  <b>{a.name}</b>
+                                  {bal < 0 && <span className="badge-negative" style={{marginLeft:'8px'}}>Cheque Especial</span>}
+                                </td>
                                 <td>
                                   <span className="pill" style={{fontSize:'11px',background:badgeColor.bg,color:badgeColor.fg,fontWeight:700}}>
                                     {label}
                                   </span>
                                 </td>
                                 <td>{money(a.openingBalance)}</td>
-                                <td className={bal >= 0 ? 'positive' : 'negative'} style={{fontWeight:800,fontSize:'14px'}}>
+                                <td className={bal >= 0 ? 'positive' : 'negative-balance'} style={{fontWeight:800,fontSize:'14px'}}>
                                   {money(bal)}
                                 </td>
                               </tr>
@@ -2248,6 +2471,7 @@ function App(){
             <div className="panel-title">
               <h2>Cartões de Crédito e Faturas</h2>
               <div style={{display:'flex',gap:'8px'}}>
+                <button className="secondary" onClick={()=>handleLateFeesSim()}><AlertTriangle size={15}/> Taxa de Atraso (CDC)</button>
                 <button className="secondary" onClick={handleNewPurchase}><CreditCard size={15}/> Nova Compra</button>
                 <button className="secondary" onClick={handleNewCard}><Plus size={15}/> Novo Cartão</button>
               </div>
@@ -2282,9 +2506,14 @@ function App(){
                             <div style={{fontSize:'10px',textTransform:'uppercase',letterSpacing:'0.06em',color:'#94a3b8'}}>Fatura Atual ({c.currentInvoice.referenceMonth})</div>
                             <div style={{fontSize:'16px',fontWeight:800,color:'#f87171'}}>{money(c.currentInvoice.totalAmount)}</div>
                           </div>
-                          {Number(c.currentInvoice.totalAmount)>0&&(
-                            <button className="primary" style={{fontSize:'11px',padding:'6px 12px',background:'#0d9488',borderColor:'#0d9488'}} onClick={()=>setModal('pay_invoice')}>Pagar Fatura</button>
-                          )}
+                          <div style={{display:'flex',gap:'6px'}}>
+                            <button className="secondary" style={{fontSize:'11px',padding:'6px 10px',background:'rgba(255,255,255,0.1)',color:'#fff',borderColor:'rgba(255,255,255,0.2)'}} onClick={()=>handleLateFeesSim({ ...c.currentInvoice, cardName: c.name })}>
+                              Simular Atraso
+                            </button>
+                            {Number(c.currentInvoice.totalAmount)>0&&(
+                              <button className="primary" style={{fontSize:'11px',padding:'6px 12px',background:'#0d9488',borderColor:'#0d9488'}} onClick={()=>setModal('pay_invoice')}>Pagar Fatura</button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2405,6 +2634,9 @@ function App(){
               card:'Novo cartão de crédito',
               purchase:'Nova compra no cartão',
               pay_invoice:'Pagar fatura de cartão',
+              salary:'Receber Salário / Pró-labore',
+              recharge_benefit:'Recarregar Benefício (Saldo Acumulativo)',
+              late_fees:'Calculadora de Atraso de Cartão (CDC / BACEN)',
               entry:'Novo Lançamento Financeiro',
               edit_entry:'Editar Lançamento Financeiro',
               transfer:'Nova transferência',
@@ -2469,6 +2701,109 @@ function App(){
               <label>Fatura a pagar<select name="invoiceId" required>{cards.filter(c=>c.currentInvoice).map(c=><option key={c.currentInvoice!.id} value={c.currentInvoice!.id}>{c.name} - {c.currentInvoice!.referenceMonth} ({money(c.currentInvoice!.totalAmount)})</option>)}</select></label>
               <label>Conta de débito<select name="accountId" required>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
             </>}
+            {modal==='salary'&&<>
+              <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
+                Perfil Destino: <b>{current?.name || (profiles[0] ? profiles[0].name : 'Individual')}</b>
+              </div>
+              <label>Conta Bancária para Depósito
+                <select name="accountId" required>
+                  {accounts.map(a=><option key={a.id} value={a.id}>{a.name} (Saldo Atual: {money(accountBalance(a))})</option>)}
+                </select>
+              </label>
+              <label>Descrição do Recebimento
+                <input name="description" required defaultValue="Salário Mensal" placeholder="Ex.: Salário Empresa ABC, Pró-labore"/>
+              </label>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Valor Líquido (R$)
+                  <input name="amount" required type="number" min="0.01" step="0.01" placeholder="Ex.: 5200.00"/>
+                </label>
+                <label>Data de Crédito
+                  <input name="date" required type="date" defaultValue={new Date().toLocaleDateString('en-CA')}/>
+                </label>
+              </div>
+              <label>Status do Salário
+                <select name="status">
+                  <option value="POSTED">Realizado (Já creditado na conta)</option>
+                  <option value="SCHEDULED">Previsto (A receber nos próximos dias)</option>
+                </select>
+              </label>
+            </>}
+            {modal==='recharge_benefit'&&<>
+              <div style={{fontSize:'12px',color:'#0284c7',background:'#f0f9ff',border:'1px solid #bae6fd',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
+                💡 <b>Regra do Benefício (Saldo Acumulativo):</b> O saldo de vales acumula mês a mês e não debita sua conta bancária.
+              </div>
+              <label>Carteira / Cartão de Benefício
+                <select name="accountId" required>
+                  {accounts.map(a=><option key={a.id} value={a.id}>{a.name} (Saldo Acumulado: {money(accountBalance(a))})</option>)}
+                </select>
+              </label>
+              <label>Identificação da Recarga
+                <input name="description" required defaultValue="Recarga Mensal de Benefício" placeholder="Ex.: Recarga Vale-Mercado Alelo, Vale-Combustível"/>
+              </label>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                <label>Valor da Recarga (R$)
+                  <input name="amount" required type="number" min="0.01" step="0.01" placeholder="Ex.: 780.00"/>
+                </label>
+                <label>Data do Crédito
+                  <input name="date" required type="date" defaultValue={new Date().toLocaleDateString('en-CA')}/>
+                </label>
+              </div>
+            </>}
+            {modal==='late_fees'&&(() => {
+              const fees = calculateLateFees();
+              return (
+                <div>
+                  <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
+                    Simulador Oficial de Encargos por Atraso de Cartão conforme regulamentação CDC e BACEN.
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                    <label>Valor da Fatura Vencida (R$)
+                      <input type="number" step="0.01" min="0.01" value={lateFeeManualAmount} onChange={e=>setLateFeeManualAmount(e.target.value)} required/>
+                    </label>
+                    <label>Taxa de Juros Rotativo (% a.m.)
+                      <input type="number" step="0.1" min="0" value={lateFeeRevolvingRate} onChange={e=>setLateFeeRevolvingRate(Number(e.target.value))} required/>
+                    </label>
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+                    <label>Data de Vencimento Original
+                      <input type="date" value={lateFeeDueDate} onChange={e=>setLateFeeDueDate(e.target.value)} required/>
+                    </label>
+                    <label>Data Prevista de Quitação
+                      <input type="date" value={lateFeePayDate} onChange={e=>setLateFeePayDate(e.target.value)} required/>
+                    </label>
+                  </div>
+                  <div className="late-fees-breakdown" style={{marginTop:'14px'}}>
+                    <h4 style={{margin:'0 0 10px',fontSize:'13px',color:'var(--text-main)'}}>
+                      Demonstrativo dos Encargos ({fees.daysLate} {fees.daysLate === 1 ? 'dia' : 'dias'} de atraso):
+                    </h4>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',padding:'4px 0'}}>
+                      <span style={{color:'var(--text-secondary)'}}>Multa Moratória (2% fixo - CDC Art. 52):</span>
+                      <b style={{color:'var(--danger)'}}>+ {money(fees.fine)}</b>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',padding:'4px 0'}}>
+                      <span style={{color:'var(--text-secondary)'}}>Juros de Mora (1% a.m. pro-rata die):</span>
+                      <b style={{color:'var(--danger)'}}>+ {money(fees.mora)}</b>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',padding:'4px 0'}}>
+                      <span style={{color:'var(--text-secondary)'}}>Juros Crédito Rotativo ({lateFeeRevolvingRate}% a.m. pro-rata):</span>
+                      <b style={{color:'var(--danger)'}}>+ {money(fees.rotativo)}</b>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'12px',padding:'4px 0'}}>
+                      <span style={{color:'var(--text-secondary)'}}>IOF (0,38% fixo + 0,0082%/dia BACEN):</span>
+                      <b style={{color:'var(--danger)'}}>+ {money(fees.iof)}</b>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px',padding:'8px 0',borderTop:'1px solid var(--border)',marginTop:'6px',fontWeight:700}}>
+                      <span>Total de Encargos de Atraso:</span>
+                      <span style={{color:'var(--danger)'}}>+ {money(fees.totalFees)}</span>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'15px',padding:'10px 0 0',borderTop:'2px solid var(--border)',marginTop:'6px',fontWeight:800}}>
+                      <span style={{color:'var(--text-main)'}}>Total Atualizado a Pagar:</span>
+                      <span style={{color:'var(--danger)'}}>{money(fees.totalDue)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             {modal==='entry'&&<>
               <div style={{fontSize:'12px',color:'#0f766e',background:'#f0fdfa',border:'1px solid #99f6e4',padding:'8px 12px',borderRadius:'8px',marginBottom:'12px'}}>
                 Perfil Vinculado: <b>{current?.name || (profiles[0] ? profiles[0].name : 'Individual')}</b>
@@ -2634,7 +2969,13 @@ function App(){
               <label>Valor (R$)<input name="amount" required type="number" min="0.01" step="0.01"/></label>
             </>}
             {error&&<div className="error">{error}</div>}
-            <button className="primary" type="submit" disabled={busy}>{busy?'Processando...':'Salvar'}</button>
+            {modal==='late_fees' ? (
+              <button className="secondary" type="button" onClick={()=>{setModal('');setError('');}} style={{width:'100%',padding:'10px'}}>
+                Fechar Simulador
+              </button>
+            ) : (
+              <button className="primary" type="submit" disabled={busy}>{busy?'Processando...':'Salvar'}</button>
+            )}
           </form>
         </div>
       </div>}

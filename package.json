@@ -15,8 +15,10 @@
     "build:web": "npm run build --workspace=@boma/web",
     "build:api": "npm run build --workspace=@boma/api",
     "build": "npm run build:web",
-    "db:generate": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
-    "db:migrate": "npx prisma migrate dev --schema=apps/api/prisma/schema.prisma"
+    "db:start": "node scripts/db.cjs",
+    "db:generate": "npm run --workspace=@boma/api db:generate",
+    "db:push": "npm run --workspace=@boma/api db:push",
+    "db:migrate": "npm run --workspace=@boma/api db:migrate"
   },
   "keywords": [
     "finance",
@@ -26,5 +28,17 @@
     "banking"
   ],
   "author": "BOMA Finance Team",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "embedded-postgres": "^18.4.0-beta.17"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "@embedded-postgres/windows-x64@18.4.0-beta.17": true,
+    "@nestjs/core@10.4.22": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
+  }
 }

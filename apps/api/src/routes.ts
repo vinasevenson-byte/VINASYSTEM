@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { Body, Controller, Get, Post, Patch, Param, Query, Req, BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { Body, Controller, Get, Post, Patch, Param, Query, Req, BadRequestException, ConflictException, ForbiddenException, NotFoundException, Inject } from '@nestjs/common';
 import { IsEmail, IsUUID, IsIn, IsISO8601, IsNotEmpty, IsOptional, IsString, MinLength, Matches } from 'class-validator';
-import { Db } from './module';
+import { Db } from './db';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -20,7 +20,7 @@ class EntryDto {
 }
 class TransferDto { @IsUUID() fromProfileId!:string; @IsUUID() fromAccountId!:string; @IsUUID() toProfileId!:string; @IsUUID() toAccountId!:string; @Matches(/^\d{1,16}(\.\d{1,2})?$/) amount!:string; @IsString() @IsNotEmpty() description!:string; }
 @Controller('api') export class FinanceController {
- constructor(private db:Db){}
+ constructor(@Inject(Db) private db:Db){}
  private sign(id:string){return jwt.sign({sub:id},process.env.JWT_SECRET!,{expiresIn:'8h'});}
  private positive(v:string){const d=new Decimal(v);if(!d.isFinite()||d.lte(0))throw new BadRequestException('Valor deve ser positivo');return d;}
  private async member(userId:string,profileId:string,write=false){const m=await this.db.membership.findUnique({where:{userId_profileId:{userId,profileId}}});if(!m||write&&m.role==='VIEWER')throw new ForbiddenException('Sem permissão no perfil');return m;}

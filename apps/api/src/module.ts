@@ -1,9 +1,9 @@
 import { Module, Injectable, OnModuleDestroy, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { PrismaClient } from '@prisma/client';
 import * as jwt from 'jsonwebtoken';
+import { Db } from './db';
 import { FinanceController } from './routes';
-@Injectable() export class Db extends PrismaClient implements OnModuleDestroy { async onModuleDestroy(){await this.$disconnect();} }
+export { Db };
 @Injectable() export class AuthGuard implements CanActivate {
   canActivate(ctx:ExecutionContext) {
     const req=ctx.switchToHttp().getRequest();

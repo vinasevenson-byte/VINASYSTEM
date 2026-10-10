@@ -78,3 +78,5 @@ build/
 *.sln
 *.sw?
 Thumbs.db
+data/
+

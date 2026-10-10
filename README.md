@@ -1,7 +1,18 @@
 # VINASYSTEM — BOMA Finance
 
 > **BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis**  
-> **Versão 1.0** — Plataforma financeira moderna, independente e multiperfis construída com React, TypeScript, Node.js, Tailwind CSS e PostgreSQL.
+> **Versão 1.1** — Plataforma financeira moderna, segura e multiperfis construída com React 19, TypeScript, Node.js (NestJS), Tailwind CSS e PostgreSQL com Prisma ORM.
+
+[![Production Deployment](https://img.shields.io/badge/Vercel-Deployed-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vinasystem-vert.vercel.app/)
+[![Invariants Tests](https://img.shields.io/badge/Invariants_Tests-6%2F6_Passing-success?style=for-the-badge)](tests/invariants.test.cjs)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-blue?style=for-the-badge)](#)
+
+---
+
+## 🌐 Deploy em Produção
+
+A interface web está publicada e acessível em:
+👉 **[https://vinasystem-vert.vercel.app/](https://vinasystem-vert.vercel.app/)**
 
 ---
 
@@ -9,11 +20,52 @@
 
 O **BOMA Finance** é uma plataforma financeira de alta fidelidade desenhada sob o conceito de bancos digitais modernos (referência visual *Fiscaly* / *Finestra*). 
 
-Sua principal característica é a **Arquitetura Multiperfis**: cada perfil financeiro (*Pessoal*, *Familiar*, *Patrimônio*, *Projetos*) possui suas próprias contas, despesas, faturas de cartão e metas, com a capacidade de alternar instantaneamente para a **Visão Consolidada** — eliminando transferências internas e prevenindo qualquer duplicação contábil.
+Sua principal característica é a **Arquitetura Multiperfis**: cada perfil financeiro (*Pessoal*, *Familiar*, *Patrimônio*, *Investimentos*, etc.) possui suas próprias contas, despesas, faturas de cartão e metas, com a capacidade de alternar instantaneamente para a **Visão Consolidada** — eliminando transferências internas e prevenindo qualquer duplicação contábil.
 
 ---
 
-## 💎 Regras Fundamentais do Motor Financeiro (`@boma/shared`)
+## 🎯 Roadmap de Entregas Homologadas (100% Concluído)
+
+### 1. Homologação Real e Stack Unificada
+- **PostgreSQL 18** rodando em banco dedicado `boma_finance`.
+- **Prisma ORM** com schema relacional robusto (`packages/database/prisma/schema.prisma`).
+- **NestJS REST API** na porta `3001` com injeção de dependência via serviço desacoplado `Db`.
+- **React 19 + Vite** com interface responsiva, ícones Lucide e gráficos interativos.
+- Validação ponta a ponta: cadastro, login, contas bancárias, lançamentos e dashboard dinâmico.
+
+### 2. Segurança de Produção
+- **Trilha de Auditoria Imutável (`AuditLog`)**: Registro em banco de tentativas de login (sucesso/falha), criação de perfis, contas, lançamentos e movimentações.
+- **Proteção Contra Força Bruta (`RateLimiter`)**: Bloqueio de IP após tentativas repetidas de login com retorno HTTP `429 Too Many Requests`.
+- **Gestão Segura de Sessão**: Armazenamento estrito em `sessionStorage` (sem exposição em `localStorage`).
+- **Autenticação JWT**: Bearer tokens com validação estrita de integridade e formato.
+
+### 3. Gestão Multiperfis Completa
+- **Controle de Acesso Baseado em Papéis (RBAC)** por perfil:
+  - `OWNER`: Controle total e delegação de membros.
+  - `MANAGER`: Gestão financeira e lançamentos.
+  - `EDITOR`: Inclusão e edição de movimentações.
+  - `VIEWER`: Apenas visualização de relatórios.
+- **Grupos de Consolidação Customizados (`ConsolidationGroup`)**: Agrupamento flexível de perfis (ex: "Consolidado Família", "Consolidado Negócios").
+- **Isolamento de Dados**: Nenhuma operação ou leitura cruza fronteiras de perfis não autorizados.
+
+### 4. Motor Financeiro Avançado
+- **Ciclo de Vida de Lançamentos**:
+  - `SCHEDULED` (Previsto): Compõe saldo projetado sem impactar caixa imediato.
+  - `POSTED` (Realizado): Compõe o saldo realizado real.
+  - `VOID` (Estornado): Excluído integralmente dos cálculos de fluxo de caixa e resultados.
+- **Reconciliação Bancária (`reconciled`)**: Rastreamento com carimbo de data/hora (`reconciledAt`).
+- **Eliminação Absoluta de Transferências Internas**: Uma transferência entre perfis tem efeito contábil nulo (R$ 0,00) no consolidado global.
+
+### 5. Cartões de Crédito e Faturas Inteligentes
+- **Modelagem Relacional de Cartões**: Tabelas `CreditCard`, `Invoice` e `CardPurchase`.
+- **Faturas Mensais Dinâmicas**: Geração automática por mês de referência (`YYYY-MM`) com dias de fechamento e vencimento.
+- **Parcelamento Inteligente**: Divisão automática de compras em até 48x distribuídas nas faturas dos meses subsequentes.
+- **Limite Disponível em Tempo Real**: Subtração automática do saldo devedor e restituição do limite mediante pagamentos.
+- **Quitação Sem Duplicidade Contábil**: O pagamento de fatura debita a conta bancária como liquidação de passivo, prevenindo dupla contagem no DRE.
+
+---
+
+## 💎 Regras Fundamentais do Motor Financeiro
 
 1. **Eliminação de Transferências Internas**: Uma transferência entre dois perfis autorizados (ex: Pessoal para Familiar) altera os saldos individuais, mas gera **R$ 0,00 de variação na receita ou despesa consolidada**.
 2. **Regra de Ouro dos Cartões de Crédito**: A compra parcelada ou à vista é lançada como despesa na competência da fatura. A quitação da fatura na conta bancária é tratada como liquidação de passivo, **nunca duplicando a despesa** no fluxo de caixa ou DRE.
@@ -22,52 +74,62 @@ Sua principal característica é a **Arquitetura Multiperfis**: cada perfil fina
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 🚀 Como Executar o Projeto Localmente
 
 ### Pré-requisitos
-- Node.js 18+ (recomendado Node.js 20 ou 24)
+- Node.js 20+ ou 24+
 - npm 10+
 
-### 1. Iniciar a Aplicação Web (Frontend React)
-```bash
-cd apps/web
-npm install
-npm run dev
-```
-Acesse no navegador: **`http://localhost:3000`**
+### Passo a Passo
 
-### 2. Iniciar a API REST (Backend Node.js)
-```bash
-cd apps/api
-npm install
-npm run dev
+```powershell
+# 1. Iniciar o servidor PostgreSQL local
+node scripts/db.cjs
+
+# 2. Gerar o cliente Prisma e sincronizar tabelas
+npm.cmd run db:generate
+npm.cmd run db:push
+
+# 3. Iniciar a API REST (NestJS - porta 3001)
+npm.cmd run dev:api
+
+# 4. Iniciar o Frontend Web (Vite/React - porta 5173)
+npm.cmd run dev:web
 ```
-API disponível em: **`http://localhost:4000`**
+
+Acesse localmente em: **`http://localhost:5173`**
 
 ---
 
-## 📁 Estrutura do Repositório
+## 🧪 Testes de Invariantes e Integridade
 
+O projeto conta com suíte de testes estáticos e de invariantes contábeis:
+
+```powershell
+npm.cmd test
 ```
-boma-finance/
-├── apps/
-│   ├── web/                     # Frontend React 18 + Vite + Tailwind CSS + Recharts
-│   │   ├── src/
-│   │   │   ├── components/      # Sidebar, TopHeader, MetricCards, Modais
-│   │   │   ├── contexts/        # FinanceContext (Estado global reativo)
-│   │   │   └── views/           # 12 Telas completas (Dashboard, Cartões, DRE, Perfis, IA...)
-│   └── api/                     # Backend Node.js Express + REST API
-│       └── src/                 # Endpoints REST e cálculo dinâmico
-├── packages/
-│   ├── shared/                  # Motor de cálculo (FinancialEngine) e DTOs tipados
-│   └── database/                # Schema completo PostgreSQL com Prisma (27 tabelas)
-└── package.json                 # Monorepo workspaces
-```
+
+Resultado verificado:
+- ✔ Perfil protegido em consultas e gravações
+- ✔ Transferência exige autorização dos dois perfis e atomicidade
+- ✔ Transferências são excluídas de receitas e despesas
+- ✔ Chaves de integridade ligam lançamentos a contas no mesmo perfil
+- ✔ Sessão não é persistida em localStorage
+- ✔ Cabeçalho Authorization exige Bearer estrito
+- **Total: 6/6 aprovados (100%)**
 
 ---
 
-## 🔒 Segurança e Banco de Dados
+## 📦 Build e Deploy Vercel
 
-- **PostgreSQL**: Modelagem relacional completa com 27 tabelas mapeadas em `packages/database/prisma/schema.prisma`.
-- **Row-Level Security (RLS)**: Isolamento estrito por `profile_id`.
-- **Padrão OWASP**: Auditoria contábil imutável em `audit_logs` e autenticação multifator (MFA/Passkeys).
+### Build de Produção
+```powershell
+npm.cmd run build
+```
+
+### Configurações no Vercel
+- **Framework**: `Vite`
+- **Build Command**: `npm run build:web`
+- **Output Directory**: `apps/web/dist`
+- **Variáveis de Ambiente**:
+  - `VITE_API_URL`: URL base da API backend (ex: `https://api.seudominio.com`). Se omitido, utiliza as rotas relativas `/api`.

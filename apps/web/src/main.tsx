@@ -10,8 +10,9 @@ type Card={id:string,name:string,limit:string,closingDay:number,dueDay:number,co
 type Dash={income:string,expense:string,result:string,balance:string,projectedBalance?:string,scheduledIncome?:string,scheduledExpense?:string,profileCount:number,accountCount:number};
 
 const money=(value:string|number)=>Number(value).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const API_BASE=(import.meta.env.VITE_API_URL||'').replace(/\/$/,'')+'/api';
 const api=async<T,>(path:string,token:string,body?:unknown,method?:string):Promise<T>=>{
-  const response=await fetch('/api'+path,{
+  const response=await fetch(API_BASE+path,{
     method:method||(body?'POST':'GET'),
     headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},
     body:body?JSON.stringify(body):undefined

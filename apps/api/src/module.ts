@@ -3,7 +3,9 @@ import { APP_GUARD } from '@nestjs/core';
 import * as jwt from 'jsonwebtoken';
 import { Db } from './db';
 import { FinanceController } from './routes';
-export { Db };
+import { AuditService } from './audit';
+import { RateLimiterService } from './rate-limiter';
+export { Db, AuditService, RateLimiterService };
 @Injectable() export class AuthGuard implements CanActivate {
   canActivate(ctx:ExecutionContext) {
     const req=ctx.switchToHttp().getRequest();
@@ -12,4 +14,4 @@ export { Db };
     catch {throw new UnauthorizedException('Sessão inválida ou expirada');}
   }
 }
-@Module({controllers:[FinanceController],providers:[Db,{provide:APP_GUARD,useClass:AuthGuard}]}) export class AppModule {}
+@Module({controllers:[FinanceController],providers:[Db,AuditService,RateLimiterService,{provide:APP_GUARD,useClass:AuthGuard}]}) export class AppModule {}

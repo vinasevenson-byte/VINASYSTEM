@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { Body, Controller, Get, Post, Patch, Param, Query, Req, BadRequestException, ConflictException, ForbiddenException, NotFoundException, Inject } from '@nestjs/common';
 import { IsEmail, IsUUID, IsIn, IsISO8601, IsNotEmpty, IsOptional, IsString, MinLength, Matches } from 'class-validator';
 import { Db } from './db';
+import { AuditService } from './audit';
+import { RateLimiterService } from './rate-limiter';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -20,13 +22,14 @@ class EntryDto {
 }
 class TransferDto { @IsUUID() fromProfileId!:string; @IsUUID() fromAccountId!:string; @IsUUID() toProfileId!:string; @IsUUID() toAccountId!:string; @Matches(/^\d{1,16}(\.\d{1,2})?$/) amount!:string; @IsString() @IsNotEmpty() description!:string; }
 @Controller('api') export class FinanceController {
- constructor(@Inject(Db) private db:Db){}
+ constructor(@Inject(Db) private db:Db, @Inject(AuditService) private audit:AuditService, @Inject(RateLimiterService) private rateLimiter:RateLimiterService){}
  private sign(id:string){return jwt.sign({sub:id},process.env.JWT_SECRET!,{expiresIn:'8h'});}
  private positive(v:string){const d=new Decimal(v);if(!d.isFinite()||d.lte(0))throw new BadRequestException('Valor deve ser positivo');return d;}
  private async member(userId:string,profileId:string,write=false){const m=await this.db.membership.findUnique({where:{userId_profileId:{userId,profileId}}});if(!m||write&&m.role==='VIEWER')throw new ForbiddenException('Sem permissão no perfil');return m;}
  @Get('health') health(){return {status:'ok'};}
- @Post('auth/register') async register(@Body() b:RegisterDto){const email=b.email.trim().toLowerCase();if(await this.db.user.findUnique({where:{email}}))throw new ConflictException('E-mail já cadastrado');const user=await this.db.user.create({data:{email,name:b.name,passwordHash:await bcrypt.hash(b.password,12)}});return {token:this.sign(user.id),user:{id:user.id,name:user.name,email:user.email}};}
- @Post('auth/login') async login(@Body() b:LoginDto){const user=await this.db.user.findUnique({where:{email:b.email.trim().toLowerCase()}});if(!user||!(await bcrypt.compare(b.password,user.passwordHash)))throw new ForbiddenException('Credenciais inválidas');return {token:this.sign(user.id),user:{id:user.id,name:user.name,email:user.email}};}
+ @Get('audit') async auditLogs(@Req() req:any){return this.audit.getRecent(req.userId);}
+ @Post('auth/register') async register(@Req() req:any,@Body() b:RegisterDto){const ip=req.ip||req.headers['x-forwarded-for']||'127.0.0.1';this.rateLimiter.check(`register:${ip}`,10,60000);const email=b.email.trim().toLowerCase();if(await this.db.user.findUnique({where:{email}}))throw new ConflictException('E-mail já cadastrado');const user=await this.db.user.create({data:{email,name:b.name,passwordHash:await bcrypt.hash(b.password,12)}});await this.audit.log({userId:user.id,action:'AUTH_REGISTER',entity:'User',entityId:user.id,ipAddress:String(ip)});return {token:this.sign(user.id),user:{id:user.id,name:user.name,email:user.email}};}
+ @Post('auth/login') async login(@Req() req:any,@Body() b:LoginDto){const ip=req.ip||req.headers['x-forwarded-for']||'127.0.0.1';const email=b.email.trim().toLowerCase();this.rateLimiter.check(`login:${ip}:${email}`,5,60000);const user=await this.db.user.findUnique({where:{email}});if(!user||!(await bcrypt.compare(b.password,user.passwordHash))){await this.audit.log({action:'AUTH_LOGIN_FAILED',entity:'User',details:{email},ipAddress:String(ip)});throw new ForbiddenException('Credenciais inválidas');}this.rateLimiter.reset(`login:${ip}:${email}`);await this.audit.log({userId:user.id,action:'AUTH_LOGIN_SUCCESS',entity:'User',entityId:user.id,ipAddress:String(ip)});return {token:this.sign(user.id),user:{id:user.id,name:user.name,email:user.email}};}
  @Get('profiles') async profiles(@Req() req:any){const ms=await this.db.membership.findMany({where:{userId:req.userId},include:{profile:true}});return ms.map(m=>({...m.profile,role:m.role}));}
  @Post('profiles') async newProfile(@Req() req:any,@Body() b:NameDto){return this.db.profile.create({data:{name:b.name,memberships:{create:{userId:req.userId,role:'OWNER'}}}});}
  @Get('profiles/:id/accounts') async accounts(@Req() req:any,@Param('id') id:string){await this.member(req.userId,id);return this.db.account.findMany({where:{profileId:id},orderBy:{createdAt:'asc'}});}

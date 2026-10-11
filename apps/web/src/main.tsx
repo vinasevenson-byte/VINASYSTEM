@@ -40,67 +40,31 @@ const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat-outras-desp', name: 'Outras Despesas', type: 'EXPENSE' }
 ];
 
-const DEFAULT_INVESTMENTS: Investment[] = [
-  { id: 'inv-1', name: 'Tesouro Selic 2029', type: 'Renda Fixa', initialAmount: '20000.00', currentAmount: '22450.00', institution: 'XP Investimentos', yieldRate: '100% CDI' },
-  { id: 'inv-2', name: 'Carteira de Dividendos (Ações)', type: 'Ações', initialAmount: '35000.00', currentAmount: '41200.00', institution: 'BTG Pactual', yieldRate: '+17.7%' },
-  { id: 'inv-3', name: 'Fundos Imobiliários (FIIs)', type: 'FIIs', initialAmount: '15000.00', currentAmount: '16800.00', institution: 'Nubank / NuInvest', yieldRate: '0.85% a.m.' }
-];
+const DEFAULT_INVESTMENTS: Investment[] = [];
 
 const DEMO_PROFILES: Profile[] = [
   { id: 'p-pessoal', name: 'Pessoal', role: 'OWNER' },
-  { id: 'p-familiar', name: 'Familiar', role: 'MANAGER' },
-  { id: 'p-patrimonio', name: 'Patrimônio & Investimentos', role: 'OWNER' }
+  { id: 'p-familiar', name: 'Familiar', role: 'OWNER' }
 ];
-const DEMO_ACCOUNTS: Account[] = [
-  { id: 'acc-1', name: 'Nubank Principal', openingBalance: '15650.00' },
-  { id: 'acc-2', name: 'Itaú Personalité', openingBalance: '28400.00' },
-  { id: 'acc-3', name: 'XP Investimentos', openingBalance: '65200.00' }
-];
-const DEMO_CARDS: Card[] = [
-  { id: 'card-1', name: 'Nubank Ultravioleta', limit: '20000.00', closingDay: 25, dueDay: 5, color: '#8a05be', availableLimit: '16000.00', currentInvoice: { id: 'inv-1', referenceMonth: '2026-10', totalAmount: '4000.00', status: 'OPEN' } }
-];
-const DEMO_ENTRIES: Entry[] = [
-  { id: 'e-1', type: 'INCOME', status: 'POSTED', amount: '12500.00', description: 'Salário Executivo', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
-  { id: 'e-2', type: 'EXPENSE', status: 'POSTED', amount: '2450.00', description: 'Aluguel Residencial', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
-  { id: 'e-3', type: 'EXPENSE', status: 'POSTED', amount: '1250.00', description: 'Supermercado Mensal', occurredAt: new Date().toISOString(), account: { name: 'Nubank Principal' } },
-  { id: 'e-4', type: 'INCOME', status: 'SCHEDULED', amount: '3500.00', description: 'Rendimento de Dividendos', occurredAt: new Date(Date.now()+5*86400000).toISOString(), account: { name: 'XP Investimentos' } },
-  { id: 'e-5', type: 'EXPENSE', status: 'SCHEDULED', amount: '820.00', description: 'Seguro Auto', occurredAt: new Date(Date.now()+8*86400000).toISOString(), account: { name: 'Nubank Principal' } }
-];
-const DEMO_COMMITMENTS: Commitment[] = [
-  { id: 'c-1', type: 'PAYABLE', status: 'PENDING', description: 'Energia Elétrica (Cemig)', amount: '385.50', dueDate: new Date(Date.now()+4*86400000).toISOString(), entityName: 'Cemig', category: 'Moradia' },
-  { id: 'c-2', type: 'PAYABLE', status: 'PENDING', description: 'Condomínio Residencial', amount: '850.00', dueDate: new Date(Date.now()+9*86400000).toISOString(), entityName: 'Condomínio', category: 'Moradia' },
-  { id: 'c-3', type: 'RECEIVABLE', status: 'PENDING', description: 'Consultoria Estratégica', amount: '4800.00', dueDate: new Date(Date.now()+15*86400000).toISOString(), entityName: 'Cliente Beta', category: 'Renda Extra' }
-];
-const DEMO_GOALS: Goal[] = [
-  { id: 'g-1', name: 'Reserva de Emergência 6 Meses', targetAmount: '35000.00', currentAmount: '22000.00', progress: 62.9, status: 'IN_PROGRESS', color: '#10B981' },
-  { id: 'g-2', name: 'Aporte Carteira de Dividendos', targetAmount: '100000.00', currentAmount: '65200.00', progress: 65.2, status: 'IN_PROGRESS', color: '#3B82F6' },
-  { id: 'g-3', name: 'Viagem Internacional', targetAmount: '20000.00', currentAmount: '14500.00', progress: 72.5, status: 'IN_PROGRESS', color: '#F59E0B' }
-];
-const DEMO_BUDGETS: Budget[] = [
-  { id: 'b-1', categoryName: 'Moradia', plannedAmount: '3000.00', spentAmount: '2450.00', percentageUsed: 81.7 },
-  { id: 'b-2', categoryName: 'Alimentação & Mercado', plannedAmount: '2500.00', spentAmount: '1250.00', percentageUsed: 50.0 },
-  { id: 'b-3', categoryName: 'Transporte & Combustível', plannedAmount: '1200.00', spentAmount: '680.00', percentageUsed: 56.7 }
-];
-const DEMO_CASHFLOW: CashflowItem[] = [
-  { month: '2026-08', income: '12500.00', expense: '4200.00', obligations: '3200.00', net: '5100.00' },
-  { month: '2026-09', income: '13200.00', expense: '4500.00', obligations: '3800.00', net: '4900.00' },
-  { month: '2026-10', income: '16000.00', expense: '4820.00', obligations: '4000.00', net: '7180.00' },
-  { month: '2026-11', income: '12500.00', expense: '4300.00', obligations: '2800.00', net: '5400.00' },
-  { month: '2026-12', income: '24500.00', expense: '6200.00', obligations: '3500.00', net: '14800.00' },
-  { month: '2027-01', income: '12500.00', expense: '4900.00', obligations: '3100.00', net: '4500.00' }
-];
+const DEMO_ACCOUNTS: Account[] = [];
+const DEMO_CARDS: Card[] = [];
+const DEMO_ENTRIES: Entry[] = [];
+const DEMO_COMMITMENTS: Commitment[] = [];
+const DEMO_GOALS: Goal[] = [];
+const DEMO_BUDGETS: Budget[] = [];
+const DEMO_CASHFLOW: CashflowItem[] = [];
 const DEMO_ADVISOR: AdvisorData = {
-  score: 88,
-  status: 'EXCELENTE',
-  safeMonthlySpend: '8672.50',
-  threeMonthSurplus: '17680.00',
-  diagnosis: 'Diagnóstico VINA Inteligente:\n\nSua saúde financeira encontra-se em nível EXCELENTE (Score 88/100). Seu fluxo operacional apresenta margem líquida superior a 50% da renda mensal. Suas reservas cobrem com folga os compromissos dos próximos 90 dias, e os limites de cartão estão com utilização inferior a 25% do teto.',
+  score: 100,
+  status: 'INICIAL',
+  safeMonthlySpend: '0.00',
+  threeMonthSurplus: '0.00',
+  diagnosis: 'Diagnóstico VINA Inteligente:\n\nSistema iniciado com valores zerados. Comece cadastrando suas contas bancárias, cartões e primeiros lançamentos para gerar análises financeiras em tempo real.',
   actionPlan: [
-    'Margem de gasto discricionário seguro para este mês: R$ 8.672,50 sem comprometer nenhuma conta futura.',
-    'Mantenha a programação dos aportes automáticos na meta de Reserva de Emergência.',
-    'Compromissos dos próximos 90 dias já provisionados em contas de alta liquidez.'
+    'Cadastre sua conta bancária no menu Contas.',
+    'Registre suas receitas e despesas no menu Lançamentos.',
+    'Defina suas metas financeiras para acompanhar seu patrimônio.'
   ],
-  aiGenerated: true
+  aiGenerated: false
 };
 
 function getDemoData<T>(path:string,body?:any):T{
@@ -112,17 +76,17 @@ function getDemoData<T>(path:string,body?:any):T{
   if(path.startsWith('/profiles')&&path.endsWith('/budgets')) return DEMO_BUDGETS as unknown as T;
   if(path.startsWith('/profiles')) return DEMO_PROFILES as unknown as T;
   if(path.startsWith('/dashboard')) {
-    return { income:'12500.00',expense:'4820.00',result:'7680.00',balance:'109250.00',projectedBalance:'111930.00',scheduledIncome:'3500.00',scheduledExpense:'820.00',profileCount:3,accountCount:3 } as unknown as T;
+    return { income:'0.00',expense:'0.00',result:'0.00',balance:'0.00',projectedBalance:'0.00',scheduledIncome:'0.00',scheduledExpense:'0.00',profileCount:2,accountCount:0 } as unknown as T;
   }
   if(path.startsWith('/reports/cashflow')) return DEMO_CASHFLOW as unknown as T;
   if(path.endsWith('/categories')) return DEFAULT_CATEGORIES as unknown as T;
   if(path.endsWith('/investments')) return DEFAULT_INVESTMENTS as unknown as T;
   if(path.startsWith('/reports/export')) {
-    const csv='ID,Data,Perfil,Conta,Tipo,Status,Descricao,Valor(R$),Conciliado\n"demo-1","2026-10-10T12:00:00.000Z","Pessoal","Nubank Principal","INCOME","POSTED","Salário Executivo","12500.00","Sim"';
-    return {csv,totalRecords:1} as unknown as T;
+    const csv='ID,Data,Perfil,Conta,Tipo,Status,Descricao,Valor(R$),Conciliado\n';
+    return {csv,totalRecords:0} as unknown as T;
   }
   if(path.startsWith('/ai/advisor')) return DEMO_ADVISOR as unknown as T;
-  return {status:'ok',id:'demo-'+Date.now()} as unknown as T;
+  return {status:'ok',id:'zero-'+Date.now()} as unknown as T;
 }
 
 interface LocalState {
@@ -138,12 +102,13 @@ interface LocalState {
 }
 
 function getLocalState(): LocalState {
-  const raw = sessionStorage.getItem('vina_store_state');
+  sessionStorage.removeItem('vina_store_state');
+  const raw = sessionStorage.getItem('vina_store_state_v2');
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
       if (!parsed.categories || !parsed.categories.length) parsed.categories = DEFAULT_CATEGORIES;
-      if (!parsed.investments) parsed.investments = DEFAULT_INVESTMENTS.map((i: any) => ({ ...i, profileId: 'p-pessoal' }));
+      if (!parsed.investments) parsed.investments = [];
       return parsed;
     } catch {
       // ignore
@@ -154,38 +119,21 @@ function getLocalState(): LocalState {
       { id: 'p-pessoal', name: 'Pessoal', role: 'OWNER' },
       { id: 'p-familiar', name: 'Familiar', role: 'OWNER' }
     ],
-    accounts: [
-      { id: 'acc-1', profileId: 'p-pessoal', name: 'Nubank Principal', openingBalance: '15650.00' },
-      { id: 'acc-2', profileId: 'p-familiar', name: 'Itaú Conjunto', openingBalance: '28400.00' }
-    ],
-    cards: [
-      { id: 'card-1', profileId: 'p-pessoal', name: 'Nubank Ultravioleta', limit: '20000.00', closingDay: 25, dueDay: 5, color: '#8a05be', availableLimit: '16000.00', currentInvoice: { id: 'inv-1', referenceMonth: '2026-10', totalAmount: '4000.00', status: 'OPEN' } }
-    ],
-    entries: [
-      { id: 'e-1', profileId: 'p-pessoal', accountId: 'acc-1', type: 'INCOME', status: 'POSTED', amount: '12500.00', description: 'Salário Executivo [Salário]', occurredAt: new Date().toISOString(), category: 'Salário', paymentMethod: 'Transferência', account: { name: 'Nubank Principal' } },
-      { id: 'e-2', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '2450.00', description: 'Aluguel Residencial [Moradia]', occurredAt: new Date().toISOString(), category: 'Moradia', paymentMethod: 'PIX', account: { name: 'Nubank Principal' } },
-      { id: 'e-3', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'POSTED', amount: '1250.00', description: 'Supermercado Mensal [Alimentação]', occurredAt: new Date().toISOString(), category: 'Alimentação', paymentMethod: 'Cartão de Débito', account: { name: 'Nubank Principal' } },
-      { id: 'e-4', profileId: 'p-pessoal', accountId: 'acc-1', type: 'EXPENSE', status: 'SCHEDULED', amount: '820.00', description: 'Seguro Auto [Transporte]', occurredAt: new Date(Date.now()+8*86400000).toISOString(), category: 'Transporte', paymentMethod: 'Boleto', account: { name: 'Nubank Principal' } }
-    ],
-    commitments: [
-      { id: 'c-1', profileId: 'p-pessoal', type: 'PAYABLE', status: 'PENDING', description: 'Energia Elétrica', amount: '385.50', dueDate: new Date(Date.now()+4*86400000).toISOString(), entityName: 'Cemig', category: 'Moradia' },
-      { id: 'c-2', profileId: 'p-pessoal', type: 'PAYABLE', status: 'PENDING', description: 'Condomínio Residencial', amount: '850.00', dueDate: new Date(Date.now()+9*86400000).toISOString(), entityName: 'Condomínio', category: 'Moradia' }
-    ],
-    goals: [
-      { id: 'g-1', profileId: 'p-pessoal', name: 'Reserva de Emergência', targetAmount: '35000.00', currentAmount: '22000.00', progress: 62.9, status: 'IN_PROGRESS', color: '#10B981' }
-    ],
-    budgets: [
-      { id: 'b-1', profileId: 'p-pessoal', categoryName: 'Moradia', plannedAmount: '3000.00', spentAmount: '2450.00', percentageUsed: 81.7 }
-    ],
+    accounts: [],
+    cards: [],
+    entries: [],
+    commitments: [],
+    goals: [],
+    budgets: [],
     categories: DEFAULT_CATEGORIES,
-    investments: DEFAULT_INVESTMENTS.map(i => ({ ...i, profileId: 'p-pessoal' }))
+    investments: []
   };
-  sessionStorage.setItem('vina_store_state', JSON.stringify(initial));
+  sessionStorage.setItem('vina_store_state_v2', JSON.stringify(initial));
   return initial;
 }
 
 function saveLocalState(st: LocalState) {
-  sessionStorage.setItem('vina_store_state', JSON.stringify(st));
+  sessionStorage.setItem('vina_store_state_v2', JSON.stringify(st));
 }
 
 function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
@@ -1939,24 +1887,30 @@ function App(){
                   <span>Últimos meses</span>
                 </div>
                 <div className="cashflow-chart-wrap">
-                  {(cashflow.length > 0 ? cashflow : DEMO_CASHFLOW).slice(-4).map(cf => {
-                    const inc = Number(cf.income);
-                    const exp = Number(cf.expense);
-                    const maxV = Math.max(...(cashflow.length > 0 ? cashflow : DEMO_CASHFLOW).slice(-4).map(c => Math.max(Number(c.income), Number(c.expense))), 1000);
-                    const incH = Math.max(8, Math.round((inc / maxV) * 100));
-                    const expH = Math.max(8, Math.round((exp / maxV) * 100));
-                    const net = Number(cf.net);
-                    return (
-                      <div key={cf.month} className="cashflow-bar-group">
-                        <div className="cashflow-bars">
-                          <div className="cashflow-bar" style={{height:`${incH}%`,background:'#10b981'}} title={`Receita: ${money(cf.income)}`}/>
-                          <div className="cashflow-bar" style={{height:`${expH}%`,background:'#ef4444'}} title={`Despesa: ${money(cf.expense)}`}/>
+                  {cashflow.length === 0 ? (
+                    <div style={{padding:'28px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px',width:'100%'}}>
+                      Nenhuma movimentação registrada no fluxo de caixa.
+                    </div>
+                  ) : (
+                    cashflow.slice(-4).map(cf => {
+                      const inc = Number(cf.income);
+                      const exp = Number(cf.expense);
+                      const maxV = Math.max(...cashflow.slice(-4).map(c => Math.max(Number(c.income), Number(c.expense))), 1000);
+                      const incH = Math.max(8, Math.round((inc / maxV) * 100));
+                      const expH = Math.max(8, Math.round((exp / maxV) * 100));
+                      const net = Number(cf.net);
+                      return (
+                        <div key={cf.month} className="cashflow-bar-group">
+                          <div className="cashflow-bars">
+                            <div className="cashflow-bar" style={{height:`${incH}%`,background:'#10b981'}} title={`Receita: ${money(cf.income)}`}/>
+                            <div className="cashflow-bar" style={{height:`${expH}%`,background:'#ef4444'}} title={`Despesa: ${money(cf.expense)}`}/>
+                          </div>
+                          <span style={{fontSize:'11px',fontWeight:700,color:'var(--text-main)'}}>{cf.month.slice(5)}/{cf.month.slice(2,4)}</span>
+                          <span style={{fontSize:'10px',fontWeight:700,color:net>=0?'#10b981':'#ef4444'}}>{net>=0?'+':'−'}{money(Math.abs(net))}</span>
                         </div>
-                        <span style={{fontSize:'11px',fontWeight:700,color:'var(--text-main)'}}>{cf.month.slice(5)}/{cf.month.slice(2,4)}</span>
-                        <span style={{fontSize:'10px',fontWeight:700,color:net>=0?'#10b981':'#ef4444'}}>{net>=0?'+':'−'}{money(Math.abs(net))}</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </section>
 
@@ -2034,38 +1988,46 @@ function App(){
                   </div>
                 </div>
                 <div className="card-summary-row">
-                  {(cards.length > 0 ? cards : DEMO_CARDS).map(card => {
-                    const limit = Number(card.limit);
-                    const avail = Number(card.availableLimit);
-                    const used = Math.max(0, limit - avail);
-                    const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
-                    return (
-                      <div key={card.id} className="card-summary-card">
-                        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                            <div style={{width:'10px',height:'10px',borderRadius:'50%',background:card.color||'#0d9488'}}/>
-                            <b style={{fontSize:'13px',color:'var(--text-main)'}}>{card.name}</b>
+                  {cards.length === 0 ? (
+                    <div style={{padding:'20px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px',width:'100%'}}>
+                      Nenhum cartão cadastrado no perfil atual.
+                    </div>
+                  ) : (
+                    cards.map(card => {
+                      const limit = Number(card.limit);
+                      const avail = Number(card.availableLimit);
+                      const used = Math.max(0, limit - avail);
+                      const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                      return (
+                        <div key={card.id} className="card-summary-card">
+                          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                              <div style={{width:'10px',height:'10px',borderRadius:'50%',background:card.color||'#0d9488'}}/>
+                              <b style={{fontSize:'13px',color:'var(--text-main)'}}>{card.name}</b>
+                            </div>
+                            <span style={{fontSize:'12px',fontWeight:700,color:pct>80?'#ef4444':'#0d9488'}}>
+                              {card.currentInvoice ? money(card.currentInvoice.totalAmount) : money(used)}
+                            </span>
                           </div>
-                          <span style={{fontSize:'12px',fontWeight:700,color:pct>80?'#ef4444':'#0d9488'}}>
-                            {card.currentInvoice ? money(card.currentInvoice.totalAmount) : money(used)}
-                          </span>
+                          <div className="progress-track" style={{height:'6px'}}>
+                            <div className="progress-bar" style={{width:`${pct}%`,background:pct>80?'#ef4444':pct>50?'#f59e0b':'#10b981'}}/>
+                          </div>
+                          <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'var(--text-muted)'}}>
+                            <span>Disponível: <b style={{color:'var(--text-secondary)'}}>{money(card.availableLimit)}</b></span>
+                            <span>Limite: <b>{money(card.limit)}</b></span>
+                          </div>
                         </div>
-                        <div className="progress-track" style={{height:'6px'}}>
-                          <div className="progress-bar" style={{width:`${pct}%`,background:pct>80?'#ef4444':pct>50?'#f59e0b':'#10b981'}}/>
-                        </div>
-                        <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'var(--text-muted)'}}>
-                          <span>Disponível: <b style={{color:'var(--text-secondary)'}}>{money(card.availableLimit)}</b></span>
-                          <span>Limite: <b>{money(card.limit)}</b></span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div style={{background:'#f8fafc',padding:'10px 14px',borderRadius:'8px',border:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'12px'}}>
-                    <span style={{color:'var(--text-secondary)'}}>Limite Total Contratado:</span>
-                    <b style={{color:'var(--text-main)',fontSize:'14px'}}>
-                      {money((cards.length > 0 ? cards : DEMO_CARDS).reduce((s, c) => s + Number(c.limit || 0), 0))}
-                    </b>
-                  </div>
+                      );
+                    })
+                  )}
+                  {cards.length > 0 && (
+                    <div style={{background:'#f8fafc',padding:'10px 14px',borderRadius:'8px',border:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'12px'}}>
+                      <span style={{color:'var(--text-secondary)'}}>Limite Total Contratado:</span>
+                      <b style={{color:'var(--text-main)',fontSize:'14px'}}>
+                        {money(cards.reduce((s, c) => s + Number(c.limit || 0), 0))}
+                      </b>
+                    </div>
+                  )}
                 </div>
               </section>
             </div>
@@ -2077,34 +2039,40 @@ function App(){
                 <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={handleNewGoal}><Plus size={14}/> Nova Meta</button>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:'16px'}}>
-                {(goals.length > 0 ? goals : DEMO_GOALS).map(g => (
-                  <div key={g.id} className="goal-card" style={{margin:0}}>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                        <div style={{width:'28px',height:'28px',borderRadius:'8px',background:`${g.color||'#10b981'}20`,color:g.color||'#10b981',display:'grid',placeItems:'center'}}>
-                          <Target size={15}/>
-                        </div>
-                        <b style={{fontSize:'13px',color:'var(--text-main)'}}>{g.name}</b>
-                      </div>
-                      <span className="pill" style={{background:'#ecfdf5',color:'#059669',fontWeight:700}}>{g.progress}%</span>
-                    </div>
-                    <div className="progress-track" style={{height:'8px',margin:'8px 0'}}>
-                      <div className="progress-bar" style={{width:`${Math.min(100,g.progress)}%`,background:g.color||'#10B981'}}/>
-                    </div>
-                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'12px'}}>
-                      <span style={{color:'var(--text-secondary)'}}>
-                        {money(g.currentAmount)} <span style={{color:'var(--text-muted)'}}>/ {money(g.targetAmount)}</span>
-                      </span>
-                      <button
-                        className="secondary"
-                        style={{fontSize:'11px',padding:'4px 10px',background:'#f0fdfa',borderColor:'#99f6e4',color:'#0f766e',fontWeight:700}}
-                        onClick={() => { setSelectedItem(g); setModal('deposit_goal'); }}
-                      >
-                        + Aporte
-                      </button>
-                    </div>
+                {goals.length === 0 ? (
+                  <div style={{padding:'24px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px',width:'100%'}}>
+                    Nenhuma meta cadastrada no perfil atual. Clique em "Nova Meta" para começar seu planejamento.
                   </div>
-                ))}
+                ) : (
+                  goals.map(g => (
+                    <div key={g.id} className="goal-card" style={{margin:0}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'8px'}}>
+                        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                          <div style={{width:'28px',height:'28px',borderRadius:'8px',background:`${g.color||'#10b981'}20`,color:g.color||'#10b981',display:'grid',placeItems:'center'}}>
+                            <Target size={15}/>
+                          </div>
+                          <b style={{fontSize:'13px',color:'var(--text-main)'}}>{g.name}</b>
+                        </div>
+                        <span className="pill" style={{background:'#ecfdf5',color:'#059669',fontWeight:700}}>{g.progress}%</span>
+                      </div>
+                      <div className="progress-track" style={{height:'8px',margin:'8px 0'}}>
+                        <div className="progress-bar" style={{width:`${Math.min(100,g.progress)}%`,background:g.color||'#10B981'}}/>
+                      </div>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'12px'}}>
+                        <span style={{color:'var(--text-secondary)'}}>
+                          {money(g.currentAmount)} <span style={{color:'var(--text-muted)'}}>/ {money(g.targetAmount)}</span>
+                        </span>
+                        <button
+                          className="secondary"
+                          style={{fontSize:'11px',padding:'4px 10px',background:'#f0fdfa',borderColor:'#99f6e4',color:'#0f766e',fontWeight:700}}
+                          onClick={() => { setSelectedItem(g); setModal('deposit_goal'); }}
+                        >
+                          + Aporte
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </section>
 

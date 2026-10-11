@@ -54,6 +54,15 @@ async function main() {
     const delAudit = await prisma.auditLog.deleteMany({});
     console.log(`  - AuditLog removidos: ${delAudit.count}`);
 
+    const delBenefitMovements = await prisma.benefitMovement.deleteMany({});
+    console.log(`  - Movimentações de benefícios removidas: ${delBenefitMovements.count}`);
+
+    const delBenefitWallets = await prisma.benefitWallet.deleteMany({});
+    console.log(`  - Carteiras de benefícios removidas: ${delBenefitWallets.count}`);
+
+    const delIncomeSchedules = await prisma.incomeSchedule.deleteMany({});
+    console.log(`  - Agendamentos de renda removidos: ${delIncomeSchedules.count}`);
+
     const delCardPurchases = await prisma.cardPurchase.deleteMany({});
     console.log(`  - CardPurchases removidas: ${delCardPurchases.count}`);
 

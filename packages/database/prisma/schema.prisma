@@ -1,600 +1,320 @@
-// Prisma Schema for BOMA Finance — Gestão Financeira Pessoal, Familiar e Multiperfis
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-enum UserRole {
-  ADMIN
-  PROFILE_MANAGER
-  OPERATOR
+enum Role {
+  OWNER
+  MANAGER
+  EDITOR
   VIEWER
-  AUDITOR
 }
 
-enum AccountType {
-  CHECKING
-  SAVINGS
-  INVESTMENT
-  CASH
-  PAYMENT_WALLET
-}
-
-enum TransactionType {
+enum EntryType {
   INCOME
   EXPENSE
-  TRANSFER
-  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
 }
 
-enum TransactionStatus {
-  PENDING
-  COMPLETED
-  CANCELLED
-  RECONCILED
+enum EntryStatus {
+  SCHEDULED
+  POSTED
+  VOID
 }
 
-enum StatementStatus {
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String
+  email        String       @unique
+  passwordHash String
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
+  auditLogs    AuditLog[]
+  consolidationGroups ConsolidationGroup[]
+}
+
+model Profile {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+  accounts    Account[]
+  entries     Entry[]
+  categories  Category[]
+  creditCards CreditCard[]
+  goals       FinancialGoal[]
+  budgets     Budget[]
+  commitments Commitment[]
+  benefitWallets BenefitWallet[]
+  incomeSchedules IncomeSchedule[]
+}
+
+model Membership {
+  userId    String   @db.Uuid
+  profileId String   @db.Uuid
+  role      Role
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([userId, profileId])
+}
+
+model Account {
+  id             String   @id @default(uuid()) @db.Uuid
+  profileId      String   @db.Uuid
+  name           String
+  openingBalance Decimal  @default(0) @db.Decimal(18, 2)
+  createdAt      DateTime @default(now())
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  entries        Entry[]
+
+  @@unique([id, profileId])
+}
+
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  profileId String    @db.Uuid
+  name      String
+  type      EntryType
+  profile   Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  entries   Entry[]
+
+  @@unique([id, profileId])
+}
+
+model Entry {
+  id          String      @id @default(uuid()) @db.Uuid
+  profileId   String      @db.Uuid
+  accountId   String      @db.Uuid
+  categoryId  String?     @db.Uuid
+  transferId  String?     @db.Uuid
+  type        EntryType
+  status      EntryStatus @default(POSTED)
+  amount      Decimal     @db.Decimal(18, 2)
+  description String
+  occurredAt  DateTime
+  reconciled  Boolean     @default(false)
+  reconciledAt DateTime?
+  createdAt   DateTime    @default(now())
+  profile     Profile     @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  account Account @relation(fields:[accountId,profileId], references:[id,profileId])
+  category Category? @relation(fields:[categoryId,profileId], references:[id,profileId])
+
+  @@index([profileId, occurredAt])
+  @@index([transferId])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  action    String
+  entity    String
+  entityId  String?
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+}
+
+model ConsolidationGroup {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  name       String
+  profileIds String[]
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum InvoiceStatus {
   OPEN
   CLOSED
   PAID
   OVERDUE
-  PARTIALLY_PAID
 }
 
-enum RecurringPeriod {
-  DAILY
-  WEEKLY
-  BIWEEKLY
-  MONTHLY
-  BIMONTHLY
-  QUARTERLY
-  SEMIANNUALLY
-  ANNUALLY
+model CreditCard {
+  id         String         @id @default(uuid()) @db.Uuid
+  profileId  String         @db.Uuid
+  name       String
+  limit      Decimal        @db.Decimal(18, 2)
+  closingDay Int
+  dueDay     Int
+  color      String?
+  createdAt  DateTime       @default(now())
+  profile    Profile        @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  invoices   Invoice[]
+  purchases  CardPurchase[]
+
+  @@unique([id, profileId])
+}
+
+model Invoice {
+  id             String         @id @default(uuid()) @db.Uuid
+  cardId         String         @db.Uuid
+  profileId      String         @db.Uuid
+  referenceMonth String
+  dueDate        DateTime
+  closingDate    DateTime
+  totalAmount    Decimal        @default(0) @db.Decimal(18, 2)
+  paidAmount     Decimal        @default(0) @db.Decimal(18, 2)
+  status         InvoiceStatus  @default(OPEN)
+  createdAt      DateTime       @default(now())
+  card           CreditCard     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  purchases      CardPurchase[]
+
+  @@unique([cardId, referenceMonth])
+  @@index([profileId, status])
+}
+
+model CardPurchase {
+  id                String      @id @default(uuid()) @db.Uuid
+  cardId            String      @db.Uuid
+  profileId         String      @db.Uuid
+  invoiceId         String?     @db.Uuid
+  description       String
+  amount            Decimal     @db.Decimal(18, 2)
+  totalAmount       Decimal     @db.Decimal(18, 2)
+  installmentNumber Int         @default(1)
+  totalInstallments Int         @default(1)
+  purchaseDate      DateTime
+  categoryId        String?     @db.Uuid
+  createdAt         DateTime    @default(now())
+  card              CreditCard  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  invoice           Invoice?    @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([cardId, invoiceId])
+  @@index([profileId, purchaseDate])
 }
 
 enum GoalStatus {
   IN_PROGRESS
   COMPLETED
   PAUSED
-  ABANDONED
 }
 
-enum AssetType {
-  REAL_ESTATE
-  VEHICLE
-  EQUIPMENT
-  COLLECTIBLE
+model FinancialGoal {
+  id            String     @id @default(uuid()) @db.Uuid
+  profileId     String     @db.Uuid
+  name          String
+  targetAmount  Decimal    @db.Decimal(18, 2)
+  currentAmount Decimal    @default(0) @db.Decimal(18, 2)
+  targetDate    DateTime?
+  status        GoalStatus @default(IN_PROGRESS)
+  color         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  profile       Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model Budget {
+  id             String   @id @default(uuid()) @db.Uuid
+  profileId      String   @db.Uuid
+  referenceMonth String
+  categoryName   String
+  plannedAmount  Decimal  @db.Decimal(18, 2)
+  createdAt      DateTime @default(now())
+  profile        Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, referenceMonth, categoryName])
+}
+
+enum CommitmentType {
+  PAYABLE
+  RECEIVABLE
+}
+
+enum CommitmentStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model Commitment {
+  id          String           @id @default(uuid()) @db.Uuid
+  profileId   String           @db.Uuid
+  type        CommitmentType
+  status      CommitmentStatus @default(PENDING)
+  description String
+  amount      Decimal          @db.Decimal(18, 2)
+  dueDate     DateTime
+  entityName  String?
+  category    String?
+  accountId   String?          @db.Uuid
+  isRecurring Boolean          @default(false)
+  period      String?
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime         @default(now())
+  profile     Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, dueDate])
+  @@index([profileId, status])
+}
+
+// Versão 2.7: contas de benefícios não se misturam ao saldo bancário.
+enum BenefitKind {
+  MARKET
+  FUEL
   OTHER
 }
 
-enum InvestmentType {
-  FIXED_INCOME
-  STOCKS
-  REAL_ESTATE_FUNDS
-  CRYPTO
-  MUTUAL_FUNDS
-  PENSION
-  INTERNATIONAL
+enum BenefitMovementType {
+  RECHARGE
+  PURCHASE
+  ADJUSTMENT
 }
 
-// 1. users
-model User {
-  id             String          @id @default(uuid())
-  email          String          @unique
+model BenefitWallet {
+  id             String            @id @default(uuid()) @db.Uuid
+  profileId      String            @db.Uuid
   name           String
-  passwordHash   String          @map("password_hash")
-  phone          String?
-  mfaEnabled     Boolean         @default(false) @map("mfa_enabled")
-  mfaSecret      String?         @map("mfa_secret")
-  active         Boolean         @default(true)
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  kind           BenefitKind
+  openingBalance Decimal           @default(0) @db.Decimal(18, 2)
+  createdAt      DateTime          @default(now())
+  profile        Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  movements      BenefitMovement[]
 
-  memberships    ProfileMember[]
-  auditLogs      AuditLog[]
-
-  @@map("users")
+  @@index([profileId])
 }
 
-// 2. financial_profiles
-model FinancialProfile {
-  id             String           @id @default(uuid())
-  name           String
-  description    String?
-  avatarUrl      String?          @map("avatar_url")
-  color          String           @default("#10B981")
-  currency       String           @default("BRL")
-  archived       Boolean          @default(false)
-  isDefault      Boolean          @default(false) @map("is_default")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  members        ProfileMember[]
-  groupLinks     GroupProfile[]
-  accounts       Account[]
-  categories     Category[]
-  transactions   Transaction[]
-  transfersFrom  Transfer[]       @relation("TransferSourceProfile")
-  transfersTo    Transfer[]       @relation("TransferDestinationProfile")
-  creditCards    CreditCard[]
-  recurringRules RecurringRule[]
-  payables       PayableReceivable[]
-  budgets        Budget[]
-  goals          FinancialGoal[]
-  investments    Investment[]
-  assets         Asset[]
-  liabilities    Liability[]
-  notifications  Notification[]
-  auditLogs      AuditLog[]
-  importBatches  ImportBatch[]
-
-  @@map("financial_profiles")
-}
-
-// 3. profile_members
-model ProfileMember {
-  id             String           @id @default(uuid())
-  profileId      String           @map("profile_id")
-  userId         String           @map("user_id")
-  role           UserRole         @default(OPERATOR)
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  profile        FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([profileId, userId])
-  @@map("profile_members")
-}
-
-// 4. profile_groups
-model ProfileGroup {
-  id             String           @id @default(uuid())
-  name           String
-  description    String?
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  groupProfiles  GroupProfile[]
-
-  @@map("profile_groups")
-}
-
-// 5. group_profiles
-model GroupProfile {
-  id             String           @id @default(uuid())
-  groupId        String           @map("group_id")
-  profileId      String           @map("profile_id")
-  createdAt      DateTime         @default(now()) @map("created_at")
-
-  group          ProfileGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  profile        FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@unique([groupId, profileId])
-  @@map("group_profiles")
-}
-
-// 6. accounts
-model Account {
-  id             String           @id @default(uuid())
-  profileId      String           @map("profile_id")
-  name           String
-  bankName       String?          @map("bank_name")
-  accountType    AccountType      @default(CHECKING) @map("account_type")
-  accountNumber  String?          @map("account_number")
-  agency         String?
-  initialBalance Decimal          @default(0) @db.Decimal(18, 2) @map("initial_balance")
-  currentBalance Decimal          @default(0) @db.Decimal(18, 2) @map("current_balance")
-  color          String           @default("#3B82F6")
-  icon           String?
-  archived       Boolean          @default(false)
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  profile        FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  transactions   Transaction[]
-  transfersFrom  Transfer[]       @relation("TransferSourceAccount")
-  transfersTo    Transfer[]       @relation("TransferDestinationAccount")
-  creditCards    CreditCard[]     @relation("DefaultPaymentAccount")
-
-  @@map("accounts")
-}
-
-// 7. categories
-model Category {
-  id             String           @id @default(uuid())
-  profileId      String?          @map("profile_id")
-  parentId       String?          @map("parent_id")
-  name           String
-  type           TransactionType  @default(EXPENSE)
-  icon           String?
-  color          String           @default("#64748B")
-  systemCategory Boolean          @default(false) @map("system_category")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-
-  profile        FinancialProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  parent         Category?         @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children       Category[]        @relation("CategoryHierarchy")
-  transactions   Transaction[]
-  splits         TransactionSplit[]
-  budgetLimits   BudgetLimit[]
-  recurringRules RecurringRule[]
-
-  @@map("categories")
-}
-
-// 8. transactions
-model Transaction {
-  id             String           @id @default(uuid())
-  profileId      String           @map("profile_id")
-  accountId      String?          @map("account_id")
-  categoryId     String?          @map("category_id")
-  cardPurchaseId String?          @map("card_purchase_id")
-  amount         Decimal          @db.Decimal(18, 2)
-  currency       String           @default("BRL")
-  type           TransactionType  @default(EXPENSE)
-  status         TransactionStatus @default(COMPLETED)
-  dueDate        DateTime?        @map("due_date")
-  effectiveDate  DateTime         @default(now()) @map("effective_date")
+model BenefitMovement {
+  id             String              @id @default(uuid()) @db.Uuid
+  walletId       String              @db.Uuid
+  type           BenefitMovementType
+  amount         Decimal             @db.Decimal(18, 2)
   description    String
-  notes          String?
-  isInternalTransfer Boolean      @default(false) @map("is_internal_transfer")
-  transferId     String?          @map("transfer_id")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
+  occurredAt     DateTime
+  // Recargas automáticas mensais usam chave determinística para evitar repetição.
+  referenceMonth String?
+  createdAt      DateTime            @default(now())
+  wallet         BenefitWallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
 
-  profile        FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  account        Account?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  category       Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  cardPurchase   CardPurchase?    @relation(fields: [cardPurchaseId], references: [id], onDelete: SetNull)
-  splits         TransactionSplit[]
-  attachments    Attachment[]
-  reconciliations ReconciliationMatch[]
-
-  @@index([profileId, effectiveDate])
-  @@index([type, status])
-  @@map("transactions")
+  @@unique([walletId,referenceMonth])
+  @@index([walletId, occurredAt])
 }
 
-// 9. transaction_splits
-model TransactionSplit {
-  id             String           @id @default(uuid())
-  transactionId  String           @map("transaction_id")
-  categoryId     String           @map("category_id")
-  amount         Decimal          @db.Decimal(18, 2)
-  percentage     Decimal?         @db.Decimal(5, 2)
-  description    String?
+model IncomeSchedule {
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @db.Uuid
+  name        String
+  amount      Decimal  @db.Decimal(18, 2)
+  dayOfMonth  Int
+  accountId   String   @db.Uuid
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
-  transaction    Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  category       Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@map("transaction_splits")
-}
-
-// 10. transfers
-model Transfer {
-  id                   String           @id @default(uuid())
-  sourceProfileId      String           @map("source_profile_id")
-  destinationProfileId String           @map("destination_profile_id")
-  sourceAccountId      String           @map("source_account_id")
-  destinationAccountId String           @map("destination_account_id")
-  amount               Decimal          @db.Decimal(18, 2)
-  fee                  Decimal          @default(0) @db.Decimal(18, 2)
-  transferDate         DateTime         @default(now()) @map("transfer_date")
-  description          String?
-  isCrossProfile       Boolean          @default(false) @map("is_cross_profile")
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  sourceProfile        FinancialProfile @relation("TransferSourceProfile", fields: [sourceProfileId], references: [id], onDelete: Cascade)
-  destinationProfile   FinancialProfile @relation("TransferDestinationProfile", fields: [destinationProfileId], references: [id], onDelete: Cascade)
-  sourceAccount        Account          @relation("TransferSourceAccount", fields: [sourceAccountId], references: [id], onDelete: Cascade)
-  destinationAccount   Account          @relation("TransferDestinationAccount", fields: [destinationAccountId], references: [id], onDelete: Cascade)
-
-  @@map("transfers")
-}
-
-// 11. credit_cards
-model CreditCard {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  name                 String
-  brand                String?
-  creditLimit          Decimal          @db.Decimal(18, 2) @map("credit_limit")
-  availableLimit       Decimal          @db.Decimal(18, 2) @map("available_limit")
-  closingDay           Int              @map("closing_day")
-  dueDay               Int              @map("due_day")
-  defaultAccountId     String?          @map("default_account_id")
-  color                String           @default("#1E293B")
-  lastFourDigits       String?          @map("last_four_digits")
-  archived             Boolean          @default(false)
-  createdAt            DateTime         @default(now()) @map("created_at")
-  updatedAt            DateTime         @updatedAt @map("updated_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  defaultAccount       Account?         @relation("DefaultPaymentAccount", fields: [defaultAccountId], references: [id])
-  purchases            CardPurchase[]
-  statements           CardStatement[]
-
-  @@map("credit_cards")
-}
-
-// 12. card_purchases
-model CardPurchase {
-  id                   String           @id @default(uuid())
-  cardId               String           @map("card_id")
-  description          String
-  totalAmount          Decimal          @db.Decimal(18, 2) @map("total_amount")
-  purchaseDate         DateTime         @default(now()) @map("purchase_date")
-  totalInstallments    Int              @default(1) @map("total_installments")
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  card                 CreditCard       @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  installments         CardInstallment[]
-  transactions         Transaction[]
-
-  @@map("card_purchases")
-}
-
-// 13. card_installments
-model CardInstallment {
-  id                   String           @id @default(uuid())
-  purchaseId           String           @map("purchase_id")
-  statementId          String?          @map("statement_id")
-  installmentNumber    Int              @map("installment_number")
-  amount               Decimal          @db.Decimal(18, 2)
-  competenceDate       DateTime         @map("competence_date")
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  purchase             CardPurchase     @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  statement            CardStatement?   @relation(fields: [statementId], references: [id], onDelete: SetNull)
-
-  @@map("card_installments")
-}
-
-// 14. card_statements
-model CardStatement {
-  id                   String           @id @default(uuid())
-  cardId               String           @map("card_id")
-  referenceMonth       Int              @map("reference_month")
-  referenceYear        Int              @map("reference_year")
-  closingDate          DateTime         @map("closing_date")
-  dueDate              DateTime         @map("due_date")
-  totalAmount          Decimal          @default(0) @db.Decimal(18, 2) @map("total_amount")
-  paidAmount           Decimal          @default(0) @db.Decimal(18, 2) @map("paid_amount")
-  status               StatementStatus  @default(OPEN)
-  createdAt            DateTime         @default(now()) @map("created_at")
-  updatedAt            DateTime         @updatedAt @map("updated_at")
-
-  card                 CreditCard       @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  installments         CardInstallment[]
-
-  @@unique([cardId, referenceYear, referenceMonth])
-  @@map("card_statements")
-}
-
-// 15. recurring_rules
-model RecurringRule {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  categoryId           String?          @map("category_id")
-  description          String
-  amount               Decimal          @db.Decimal(18, 2)
-  type                 TransactionType  @default(EXPENSE)
-  period               RecurringPeriod  @default(MONTHLY)
-  dayOfMonth           Int?             @map("day_of_month")
-  startDate            DateTime         @map("start_date")
-  endDate              DateTime?        @map("end_date")
-  active               Boolean          @default(true)
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  category             Category?        @relation(fields: [categoryId], references: [id])
-
-  @@map("recurring_rules")
-}
-
-// 16. payables_receivables
-model PayableReceivable {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  description          String
-  amount               Decimal          @db.Decimal(18, 2)
-  dueDate              DateTime         @map("due_date")
-  type                 TransactionType  @default(EXPENSE)
-  status               TransactionStatus @default(PENDING)
-  entityName           String?          @map("entity_name")
-  notes                String?
-  createdAt            DateTime         @default(now()) @map("created_at")
-  updatedAt            DateTime         @updatedAt @map("updated_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("payables_receivables")
-}
-
-// 17. budgets
-model Budget {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  referenceMonth       Int              @map("reference_month")
-  referenceYear        Int              @map("reference_year")
-  totalPlanned         Decimal          @db.Decimal(18, 2) @map("total_planned")
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  limits               BudgetLimit[]
-
-  @@unique([profileId, referenceYear, referenceMonth])
-  @@map("budgets")
-}
-
-// 18. budget_limits
-model BudgetLimit {
-  id                   String           @id @default(uuid())
-  budgetId             String           @map("budget_id")
-  categoryId           String           @map("category_id")
-  limitAmount          Decimal          @db.Decimal(18, 2) @map("limit_amount")
-  spentAmount          Decimal          @default(0) @db.Decimal(18, 2) @map("spent_amount")
-
-  budget               Budget           @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  category             Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@map("budget_limits")
-}
-
-// 19. financial_goals
-model FinancialGoal {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  name                 String
-  targetAmount         Decimal          @db.Decimal(18, 2) @map("target_amount")
-  currentAmount        Decimal          @default(0) @db.Decimal(18, 2) @map("current_amount")
-  targetDate           DateTime?        @map("target_date")
-  status               GoalStatus       @default(IN_PROGRESS)
-  color                String           @default("#10B981")
-  category             String?
-  createdAt            DateTime         @default(now()) @map("created_at")
-  updatedAt            DateTime         @updatedAt @map("updated_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("financial_goals")
-}
-
-// 20. investments
-model Investment {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  name                 String
-  type                 InvestmentType   @default(FIXED_INCOME)
-  institution          String?
-  investedAmount       Decimal          @db.Decimal(18, 2) @map("invested_amount")
-  currentValue         Decimal          @db.Decimal(18, 2) @map("current_value")
-  yieldRate            Decimal?         @db.Decimal(8, 4) @map("yield_rate")
-  dueDate              DateTime?        @map("due_date")
-  updatedAt            DateTime         @updatedAt @map("updated_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("investments")
-}
-
-// 21. assets
-model Asset {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  name                 String
-  type                 AssetType        @default(REAL_ESTATE)
-  marketValue          Decimal          @db.Decimal(18, 2) @map("market_value")
-  acquisitionValue     Decimal?         @db.Decimal(18, 2) @map("acquisition_value")
-  acquisitionDate      DateTime?        @map("acquisition_date")
-  notes                String?
-  updatedAt            DateTime         @updatedAt @map("updated_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("assets")
-}
-
-// 22. liabilities
-model Liability {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  name                 String
-  creditor             String?
-  totalAmount          Decimal          @db.Decimal(18, 2) @map("total_amount")
-  remainingAmount      Decimal          @db.Decimal(18, 2) @map("remaining_amount")
-  interestRate         Decimal?         @db.Decimal(6, 3) @map("interest_rate")
-  dueDate              DateTime?        @map("due_date")
-  updatedAt            DateTime         @updatedAt @map("updated_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("liabilities")
-}
-
-// 23. attachments
-model Attachment {
-  id                   String           @id @default(uuid())
-  transactionId        String?          @map("transaction_id")
-  fileName             String           @map("file_name")
-  fileSize             Int              @map("file_size")
-  mimeType             String           @map("mime_type")
-  storagePath          String           @map("storage_path")
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  transaction          Transaction?     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  @@map("attachments")
-}
-
-// 24. notifications
-model Notification {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  title                String
-  message              String
-  type                 String           @default("INFO")
-  read                 Boolean          @default(false)
-  link                 String?
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
-}
-
-// 25. audit_logs
-model AuditLog {
-  id                   String           @id @default(uuid())
-  userId               String?          @map("user_id")
-  profileId            String?          @map("profile_id")
-  action               String
-  entity               String
-  entityId             String?          @map("entity_id")
-  oldValues            Json?            @map("old_values")
-  newValues            Json?            @map("new_values")
-  ipAddress            String?          @map("ip_address")
-  userAgent            String?          @map("user_agent")
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  user                 User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  profile              FinancialProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("audit_logs")
-}
-
-// 26. import_batches
-model ImportBatch {
-  id                   String           @id @default(uuid())
-  profileId            String           @map("profile_id")
-  sourceFileName       String           @map("source_file_name")
-  fileType             String           @map("file_type")
-  totalRecords         Int              @map("total_records")
-  importedRecords      Int              @map("imported_records")
-  status               String           @default("COMPLETED")
-  createdAt            DateTime         @default(now()) @map("created_at")
-
-  profile              FinancialProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-
-  @@map("import_batches")
-}
-
-// 27. reconciliation_matches
-model ReconciliationMatch {
-  id                   String           @id @default(uuid())
-  transactionId        String           @map("transaction_id")
-  externalReference    String           @map("external_reference")
-  matchConfidence      Decimal          @db.Decimal(5, 2) @map("match_confidence")
-  reconciledAt         DateTime         @default(now()) @map("reconciled_at")
-
-  transaction          Transaction      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  @@map("reconciliation_matches")
+  @@index([profileId])
 }

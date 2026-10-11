@@ -635,6 +635,7 @@ function App(){
   const [selectedItem,setSelectedItem]=useState<any>(null);
   const [busy,setBusy]=useState(false);
   const [collapsed,setCollapsed]=useState(false);
+  const [mobileMenuOpen,setMobileMenuOpen]=useState(false);
   const [refresh,setRefresh]=useState(0);
   const [cloudGreeting,setCloudGreeting]=useState('');
   const [editingEntry,setEditingEntry]=useState<Entry|null>(null);
@@ -672,6 +673,11 @@ function App(){
 
   const current=profiles.find(p=>p.id===selected);
   const load=()=>setRefresh(v=>v+1);
+  const mobileNavigate=(next:string)=>{
+    setTab(next);
+    setMobileMenuOpen(false);
+    window.scrollTo({top:0,behavior:'smooth'});
+  };
 
   const accountBalance=(account:Account)=>{
     let total=Number(account.openingBalance||0);
@@ -1428,37 +1434,44 @@ function App(){
   return (
     <div className="app">
       {notice&&<div role="status" className="operation-notice" onClick={()=>setNotice('')}><CheckCircle2 size={18}/>{notice}<button type="button" aria-label="Fechar aviso">×</button></div>}
-      <aside className={`sidebar ${collapsed?'collapsed':''}`}>
+      {mobileMenuOpen&&<button type="button" className="mobile-scrim" aria-label="Fechar menu" onClick={()=>setMobileMenuOpen(false)}/>}
+      <aside className={`sidebar ${mobileMenuOpen?'mobile-open':''} ${collapsed?'collapsed':''}`}>
         <div className="brand">
           <div className="brand-icon">V</div>
-          {!collapsed&&<div><h1>VINA FINACE</h1><span>v2.5 · Financeiro Diário</span></div>}
+          {(!collapsed||mobileMenuOpen)&&<div><h1>VINA FINACE</h1><span>v2.6 · Versão mobile</span></div>}
         </div>
 
-        <div className="sidebar-scroll">
-          {!collapsed&&<div className="nav-section-title">Operação & Caixa</div>}
-          <button className={`nav-item ${tab==='cash'?'active':''}`} onClick={()=>setTab('cash')} title="Meu Financeiro Diário"><Wallet size={18}/>{!collapsed&&<span>Meu Financeiro Diário</span>}</button>
-          <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>setTab('dashboard')} title="Dashboard Executivo"><LayoutDashboard size={18}/>{!collapsed&&<span>Dashboard</span>}</button>
-          <button className={`nav-item ${tab==='entries'?'active':''}`} onClick={()=>setTab('entries')} title="Central de Lançamentos"><ReceiptText size={18}/>{!collapsed&&<span>Lançamentos</span>}</button>
-          <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>setTab('accounts')} title="Contas Bancárias & Vales"><Landmark size={18}/>{!collapsed&&<span>Contas & Vales</span>}</button>
-          <button className={`nav-item ${tab==='cards'?'active':''}`} onClick={()=>setTab('cards')} title="Cartões de Crédito"><CreditCard size={18}/>{!collapsed&&<span>Cartões de Crédito</span>}</button>
-          <button className={`nav-item ${tab==='commitments'?'active':''}`} onClick={()=>setTab('commitments')} title="Contas a Pagar & Receber"><Calendar size={18}/>{!collapsed&&<span>Compromissos</span>}</button>
-          <button className={`nav-item ${tab==='categories'?'active':''}`} onClick={()=>setTab('categories')} title="Categorias Financeiras"><FolderTree size={18}/>{!collapsed&&<span>Categorias</span>}</button>
+        <div className="sidebar-scroll" onClick={(e)=>{ if((e.target as HTMLElement).closest('button')) setMobileMenuOpen(false); }}>
+          {(!collapsed||mobileMenuOpen)&&<div className="nav-section-title">Operação & Caixa</div>}
+          <button className={`nav-item ${tab==='cash'?'active':''}`} onClick={()=>mobileNavigate('cash')} title="Meu Financeiro Diário"><Wallet size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Meu Financeiro Diário</span>}</button>
+          <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>mobileNavigate('dashboard')} title="Dashboard Executivo"><LayoutDashboard size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Dashboard</span>}</button>
+          <button className={`nav-item ${tab==='entries'?'active':''}`} onClick={()=>mobileNavigate('entries')} title="Central de Lançamentos"><ReceiptText size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Lançamentos</span>}</button>
+          <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>mobileNavigate('accounts')} title="Contas Bancárias & Vales"><Landmark size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Contas & Vales</span>}</button>
+          <button className={`nav-item ${tab==='cards'?'active':''}`} onClick={()=>mobileNavigate('cards')} title="Cartões de Crédito"><CreditCard size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Cartões de Crédito</span>}</button>
+          <button className={`nav-item ${tab==='commitments'?'active':''}`} onClick={()=>mobileNavigate('commitments')} title="Contas a Pagar & Receber"><Calendar size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Compromissos</span>}</button>
+          <button className={`nav-item ${tab==='categories'?'active':''}`} onClick={()=>mobileNavigate('categories')} title="Categorias Financeiras"><FolderTree size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Categorias</span>}</button>
 
-          {!collapsed&&<div className="nav-section-title">Planejamento & IA</div>}
-          <button className={`nav-item ${tab==='goals'?'active':''}`} onClick={()=>setTab('goals')} title="Metas Financeiras"><Target size={18}/>{!collapsed&&<span>Metas Financeiras</span>}</button>
-          <button className={`nav-item ${tab==='investments'?'active':''}`} onClick={()=>setTab('investments')} title="Investimentos & Patrimônio"><PiggyBank size={18}/>{!collapsed&&<span>Investimentos</span>}</button>
-          <button className={`nav-item ${tab==='budgets'?'active':''}`} onClick={()=>setTab('budgets')} title="Orçamentos"><PieChart size={18}/>{!collapsed&&<span>Orçamentos</span>}</button>
-          <button className={`nav-item ${tab==='reports'?'active':''}`} onClick={()=>setTab('reports')} title="Fluxo de Caixa & Relatórios"><TrendingUp size={18}/>{!collapsed&&<span>Fluxo & Relatórios</span>}</button>
-          <button className={`nav-item ${tab==='advisor'?'active':''}`} onClick={()=>setTab('advisor')} title="VINA Inteligente (IA)"><Sparkles size={18}/>{!collapsed&&<span>VINA Inteligente (IA)</span>}</button>
+          {(!collapsed||mobileMenuOpen)&&<div className="nav-section-title">Planejamento & IA</div>}
+          <button className={`nav-item ${tab==='goals'?'active':''}`} onClick={()=>mobileNavigate('goals')} title="Metas Financeiras"><Target size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Metas Financeiras</span>}</button>
+          <button className={`nav-item ${tab==='investments'?'active':''}`} onClick={()=>mobileNavigate('investments')} title="Investimentos & Patrimônio"><PiggyBank size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Investimentos</span>}</button>
+          <button className={`nav-item ${tab==='budgets'?'active':''}`} onClick={()=>mobileNavigate('budgets')} title="Orçamentos"><PieChart size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Orçamentos</span>}</button>
+          <button className={`nav-item ${tab==='reports'?'active':''}`} onClick={()=>mobileNavigate('reports')} title="Fluxo de Caixa & Relatórios"><TrendingUp size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Fluxo & Relatórios</span>}</button>
+          <button className={`nav-item ${tab==='advisor'?'active':''}`} onClick={()=>mobileNavigate('advisor')} title="VINA Inteligente (IA)"><Sparkles size={18}/>{(!collapsed||mobileMenuOpen)&&<span>VINA Inteligente (IA)</span>}</button>
 
-          {!collapsed&&<div className="nav-section-title">Gestão & Sistema</div>}
-          <button className={`nav-item ${tab==='transfers'?'active':''}`} onClick={()=>setTab('transfers')} title="Transferências Internas"><ArrowLeftRight size={18}/>{!collapsed&&<span>Transferências</span>}</button>
-          <button className={`nav-item ${tab==='profiles'?'active':''}`} onClick={()=>setTab('profiles')} title="Gestão de Perfis"><Users size={18}/>{!collapsed&&<span>Perfis</span>}</button>
+          {(!collapsed||mobileMenuOpen)&&<div className="nav-section-title">Gestão & Sistema</div>}
+          <button className={`nav-item ${tab==='transfers'?'active':''}`} onClick={()=>mobileNavigate('transfers')} title="Transferências Internas"><ArrowLeftRight size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Transferências</span>}</button>
+          <button className={`nav-item ${tab==='profiles'?'active':''}`} onClick={()=>mobileNavigate('profiles')} title="Gestão de Perfis"><Users size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Perfis</span>}</button>
+          <button className="nav-item" onClick={()=>{ setMobileMenuOpen(false); handleResetSystem(); }} title="Zerar todos os valores do sistema" style={{color:'#f87171'}}>
+            <RotateCcw size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Zerar Sistema</span>}
+          </button>
         </div>
 
         <div className="user-box">
           <div className="user-avatar">{user.charAt(0).toUpperCase()}</div>
-          {!collapsed&&<div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:'13px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{user}</div><div style={{fontSize:'11px',color:'#7c889a'}}>{current?current.name:'Consolidado'}</div></div>}
+          {(!collapsed||mobileMenuOpen)&&<div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,fontSize:'13px',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{user}</div><div style={{fontSize:'11px',color:'#7c889a'}}>{current?current.name:'Consolidado'}</div></div>}
+          <button className="icon-button" onClick={()=>setTheme(t=>t==='light'?'dark':'light')} title={theme==='light'?'Ativar Modo Escuro':'Ativar Modo Claro'}>
+            {theme==='light'?<Moon size={16} color="#94a3b8"/>:<Sun size={16} color="#f59e0b"/>}
+          </button>
           <button className="icon-button" onClick={logout} title="Sair do sistema"><LogOut size={16} color="#94a3b8"/></button>
         </div>
       </aside>
@@ -1472,7 +1485,7 @@ function App(){
         )}
         <header className="topbar">
           <div className="topbar-left">
-            <button className="icon-button" onClick={()=>setCollapsed(!collapsed)} title="Recolher/Expandir menu"><Menu size={18}/></button>
+            <button className="icon-button nav-toggle" aria-label="Abrir ou fechar menu" onClick={()=>window.matchMedia('(max-width:768px)').matches?setMobileMenuOpen(!mobileMenuOpen):setCollapsed(!collapsed)} title="Recolher/Expandir menu"><Menu size={18}/></button>
             <div className="profile-selector">
               <label>Perfil Ativo:</label>
               <select value={selected} onChange={e=>setSelected(e.target.value)}>
@@ -3028,6 +3041,13 @@ function App(){
           </form>
         </div>
       </div>}
+      <nav className="mobile-bottom-nav" aria-label="Navegação principal mobile">
+        <button type="button" className={tab==='dashboard'?'active':''} onClick={()=>mobileNavigate('dashboard')}><LayoutDashboard size={21}/><span>Início</span></button>
+        <button type="button" className={tab==='cash'?'active':''} onClick={()=>mobileNavigate('cash')}><Wallet size={21}/><span>Meu caixa</span></button>
+        <button type="button" className="mobile-add" aria-label="Novo lançamento" onClick={handleNewEntry}><Plus size={26}/><span>Lançar</span></button>
+        <button type="button" className={tab==='entries'?'active':''} onClick={()=>mobileNavigate('entries')}><ReceiptText size={21}/><span>Extrato</span></button>
+        <button type="button" aria-label="Abrir todos os menus" onClick={()=>setMobileMenuOpen(true)}><Menu size={21}/><span>Mais</span></button>
+      </nav>
     </div>
   );
 }

@@ -103,13 +103,21 @@ interface LocalState {
 
 function getLocalState(): LocalState {
   sessionStorage.removeItem('vina_store_state');
-  const raw = sessionStorage.getItem('vina_store_state_v2');
+  sessionStorage.removeItem('vina_store_state_v2');
+  sessionStorage.removeItem('vina_store_state_v3');
+  const raw = sessionStorage.getItem('vina_store_state_v4');
   if (raw) {
     try {
       const parsed = JSON.parse(raw);
-      if (!parsed.categories || !parsed.categories.length) parsed.categories = DEFAULT_CATEGORIES;
-      if (!parsed.investments) parsed.investments = [];
-      return parsed;
+      const hasOldMock = parsed.entries?.some((e: any) => e.description?.includes('Salário Executivo')) ||
+                         parsed.accounts?.some((a: any) => a.name?.includes('Nubank Principal') && a.openingBalance !== '0.00');
+      if (hasOldMock) {
+        sessionStorage.removeItem('vina_store_state_v4');
+      } else {
+        if (!parsed.categories || !parsed.categories.length) parsed.categories = DEFAULT_CATEGORIES;
+        if (!parsed.investments) parsed.investments = [];
+        return parsed;
+      }
     } catch {
       // ignore
     }
@@ -128,12 +136,12 @@ function getLocalState(): LocalState {
     categories: DEFAULT_CATEGORIES,
     investments: []
   };
-  sessionStorage.setItem('vina_store_state_v2', JSON.stringify(initial));
+  sessionStorage.setItem('vina_store_state_v4', JSON.stringify(initial));
   return initial;
 }
 
 function saveLocalState(st: LocalState) {
-  sessionStorage.setItem('vina_store_state_v2', JSON.stringify(st));
+  sessionStorage.setItem('vina_store_state_v4', JSON.stringify(st));
 }
 
 function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
@@ -537,6 +545,25 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
     return { csv: rows.join('\n'), totalRecords: state.entries.length } as unknown as T;
   }
 
+  if (path === '/system/reset') {
+    const cleanState: LocalState = {
+      profiles: [
+        { id: 'p-pessoal', name: 'Pessoal', role: 'OWNER' },
+        { id: 'p-familiar', name: 'Familiar', role: 'OWNER' }
+      ],
+      accounts: [],
+      cards: [],
+      entries: [],
+      commitments: [],
+      goals: [],
+      budgets: [],
+      categories: DEFAULT_CATEGORIES,
+      investments: []
+    };
+    saveLocalState(cleanState);
+    return { success: true, message: 'Sistema zerado com sucesso.' } as unknown as T;
+  }
+
   if (path.startsWith('/ai/advisor')) {
     return DEMO_ADVISOR as unknown as T;
   }
@@ -620,7 +647,7 @@ function App(){
   const [entryKind,setEntryKind]=useState<'INCOME'|'EXPENSE'>('EXPENSE');
   const [daysRange,setDaysRange]=useState<number>(14);
   const [lateFeeInvoice,setLateFeeInvoice]=useState<any|null>(null);
-  const [lateFeeManualAmount,setLateFeeManualAmount]=useState<string>('4000.00');
+  const [lateFeeManualAmount,setLateFeeManualAmount]=useState<string>('0.00');
   const [lateFeeDueDate,setLateFeeDueDate]=useState<string>(new Date(Date.now()-10*86400000).toLocaleDateString('en-CA'));
   const [lateFeePayDate,setLateFeePayDate]=useState<string>(new Date().toLocaleDateString('en-CA'));
   const [lateFeeRevolvingRate,setLateFeeRevolvingRate]=useState<number>(12.0);
@@ -826,14 +853,62 @@ function App(){
     }
   },[selected,token,refresh]);
 
+  const handleResetSystem=async()=>{
+    if(!window.confirm('ATENÇÃO: Deseja realmente zerar todos os valores do sistema e iniciar 100% limpo?')) return;
+    setBusy(true);
+    try {
+      await api('/system/reset', token, {}, 'POST');
+    } catch {
+      // ignore
+    }
+    sessionStorage.removeItem('vina_store_state');
+    sessionStorage.removeItem('vina_store_state_v2');
+    sessionStorage.removeItem('vina_store_state_v3');
+    sessionStorage.removeItem('vina_store_state_v4');
+    setAccounts([]);
+    setCards([]);
+    setEntries([]);
+    setCommitments([]);
+    setGoals([]);
+    setBudgets([]);
+    setInvestments([]);
+    setDash({
+      income: '0.00',
+      expense: '0.00',
+      result: '0.00',
+      balance: '0.00',
+      projectedBalance: '0.00',
+      scheduledIncome: '0.00',
+      scheduledExpense: '0.00',
+      profileCount: profiles.length || 2,
+      accountCount: 0
+    });
+    setCashflow([]);
+    setAdvisor(null);
+    setNotice('Sistema 100% zerado com sucesso! Saldos e lançamentos limpos.');
+    setBusy(false);
+    setRefresh(r => r + 1);
+  };
+
   const logout=()=>{
     sessionStorage.removeItem('vina_token');
     sessionStorage.removeItem('vina_name');
     sessionStorage.removeItem('boma_token');
     sessionStorage.removeItem('boma_name');
+    sessionStorage.removeItem('vina_store_state');
+    sessionStorage.removeItem('vina_store_state_v2');
+    sessionStorage.removeItem('vina_store_state_v3');
+    sessionStorage.removeItem('vina_store_state_v4');
     setToken('');
     setUser('');
     setProfiles([]);
+    setAccounts([]);
+    setCards([]);
+    setEntries([]);
+    setCommitments([]);
+    setGoals([]);
+    setBudgets([]);
+    setInvestments([]);
     setModal('login');
   };
 
@@ -933,11 +1008,11 @@ function App(){
     const defaultInv = inv || (cards.find(c => c.currentInvoice)?.currentInvoice || null);
     if(defaultInv) {
       setLateFeeInvoice(defaultInv);
-      setLateFeeManualAmount(String(defaultInv.totalAmount || '4000.00'));
+      setLateFeeManualAmount(String(defaultInv.totalAmount || '0.00'));
       setLateFeeDueDate(defaultInv.dueDate ? new Date(defaultInv.dueDate).toLocaleDateString('en-CA') : new Date().toLocaleDateString('en-CA'));
     } else {
       setLateFeeInvoice(null);
-      setLateFeeManualAmount('4000.00');
+      setLateFeeManualAmount('0.00');
       setLateFeeDueDate(new Date(Date.now() - 10 * 86400000).toLocaleDateString('en-CA'));
     }
     setLateFeePayDate(new Date().toLocaleDateString('en-CA'));
@@ -1304,16 +1379,7 @@ function App(){
     amount: val,
     percentage: Math.round((val / totalExpenseEntries) * 100)
   })).sort((a, b) => b.amount - a.amount);
-  if (calculatedCategories.length === 0) {
-    calculatedCategories = [
-      { name: 'Alimentação', amount: 1250, percentage: 28 },
-      { name: 'Moradia', amount: 980, percentage: 22 },
-      { name: 'Transporte', amount: 670, percentage: 15 },
-      { name: 'Saúde', amount: 535, percentage: 12 },
-      { name: 'Lazer', amount: 445, percentage: 10 },
-      { name: 'Outros', amount: 580, percentage: 13 }
-    ];
-  }
+// calculatedCategories remains empty when there are no expenses
 
   const upcomingPayables = commitments.filter(c => c.type === 'PAYABLE' && c.status === 'PENDING').slice(0, 4);
 
@@ -1429,6 +1495,7 @@ function App(){
             ):(
               <span className="pill" style={{background:'#dcfce7',color:'#166534'}} title="Conectado ao PostgreSQL"><CheckCircle2 size={12}/> PostgreSQL Ativo</span>
             )}
+            <button className="secondary" style={{color:'#be6a55',borderColor:'#fecaca',background:'#fef2f2'}} onClick={handleResetSystem} title="Zerar todos os valores do sistema"><RotateCcw size={15}/> {!collapsed&&<span>Zerar Sistema</span>}</button>
             <button className="secondary" onClick={exportCsv} title="Exportar Extrato em CSV"><FileSpreadsheet size={16}/> {!collapsed&&<span>Exportar CSV</span>}</button>
             <button className="primary" onClick={handleNewEntry} title="Novo Lançamento Financeiro"><Plus size={16}/> Novo Lançamento</button>
           </div>
@@ -1726,7 +1793,14 @@ function App(){
                           </tr>
                         </thead>
                         <tbody>
-                          {accounts.map(a => {
+                          {accounts.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} style={{padding:'24px',textAlign:'center',color:'var(--text-muted)'}}>
+                                Nenhuma conta bancária ou vale cadastrado. Clique em "+ Nova Conta ou Vale" para cadastrar.
+                              </td>
+                            </tr>
+                          ) : (
+                            accounts.map(a => {
                             const bal = accountBalance(a);
                             const label = isMarketBenefit(a) ? 'Vale-Mercado (Alimentação)' : isFuelBenefit(a) ? 'Vale-Combustível (Mobilidade)' : 'Conta Bancária / Dinheiro';
                             const badgeColor = isMarketBenefit(a) ? {bg:'#fefce8',fg:'#ca8a04'} : isFuelBenefit(a) ? {bg:'#fdf4ff',fg:'#c026d3'} : {bg:'#eff6ff',fg:'#2563eb'};
@@ -1747,7 +1821,8 @@ function App(){
                                 </td>
                               </tr>
                             );
-                          })}
+                          })
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -1920,7 +1995,12 @@ function App(){
                   <button className="secondary" style={{fontSize:'12px',padding:'6px 12px'}} onClick={()=>setTab('budgets')}>Orçamentos</button>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-                  {calculatedCategories.slice(0,5).map((cat, idx) => (
+                  {calculatedCategories.length === 0 ? (
+                    <div style={{padding:'20px',textAlign:'center',color:'var(--text-muted)',fontSize:'13px'}}>
+                      Nenhuma despesa registrada no período.
+                    </div>
+                  ) : (
+                    calculatedCategories.slice(0,5).map((cat, idx) => (
                     <div key={cat.name} className="category-bar-item">
                       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'13px'}}>
                         <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
@@ -1936,7 +2016,8 @@ function App(){
                         <div className="progress-bar" style={{width:`${cat.percentage}%`,background:CATEGORY_COLORS[idx%CATEGORY_COLORS.length]}}/>
                       </div>
                     </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </section>
             </div>

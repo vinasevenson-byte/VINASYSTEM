@@ -302,4 +302,19 @@ class AdvisorQueryDto {
    totalSavedInGoals
   },b.question);
  }
+
+  @Post('system/reset')
+  async resetSystem(@Req() req: any) {
+    await this.db.auditLog.deleteMany({});
+    await this.db.cardPurchase.deleteMany({});
+    await this.db.invoice.deleteMany({});
+    await this.db.creditCard.deleteMany({});
+    await this.db.entry.deleteMany({});
+    await this.db.commitment.deleteMany({});
+    await this.db.financialGoal.deleteMany({});
+    await this.db.budget.deleteMany({});
+    await this.db.account.deleteMany({});
+    await this.db.consolidationGroup.deleteMany({});
+    return { success: true, message: 'Sistema zerado com sucesso.' };
+  }
 }

@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import{createRoot}from'react-dom/client';
 import{LayoutDashboard,Users,Wallet,ReceiptText,Landmark,ArrowLeftRight,LogOut,Plus,Menu,ChartNoAxesCombined,ShieldCheck,CreditCard,CheckCircle2,Clock,RotateCcw,Target,Calendar,Bot,FileSpreadsheet,Sparkles,TrendingUp,AlertTriangle,ArrowDownRight,ArrowUpRight,DollarSign,PieChart,Pencil,Trash2,Search,Filter,Sun,Moon,FolderTree,PiggyBank,Layers}from'lucide-react';
 import './style.css';
+import DailyFinance from './DailyFinance';
 
 type Profile={id:string,name:string,role:string};
 type Account={id:string,name:string,openingBalance:string,profileId?:string};
@@ -99,6 +100,8 @@ interface LocalState {
   budgets: (Budget & { profileId: string })[];
   categories: Category[];
   investments: (Investment & { profileId: string })[];
+  benefits: any[];
+  incomeSchedules: any[];
 }
 
 function getLocalState(): LocalState {
@@ -116,6 +119,8 @@ function getLocalState(): LocalState {
       } else {
         if (!parsed.categories || !parsed.categories.length) parsed.categories = DEFAULT_CATEGORIES;
         if (!parsed.investments) parsed.investments = [];
+        if (!parsed.benefits) parsed.benefits = [];
+        if (!parsed.incomeSchedules) parsed.incomeSchedules = [];
         return parsed;
       }
     } catch {
@@ -134,7 +139,9 @@ function getLocalState(): LocalState {
     goals: [],
     budgets: [],
     categories: DEFAULT_CATEGORIES,
-    investments: []
+    investments: [],
+    benefits: [],
+    incomeSchedules: []
   };
   sessionStorage.setItem('vina_store_state_v4', JSON.stringify(initial));
   return initial;
@@ -545,6 +552,114 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
     return { csv: rows.join('\n'), totalRecords: state.entries.length } as unknown as T;
   }
 
+  const benMatch = path.match(/^\/profiles\/([^/]+)\/benefits/);
+  if (benMatch) {
+    const pid = benMatch[1];
+    if (b?.name) {
+      const created = {
+        id: 'ben-' + Date.now(),
+        profileId: pid,
+        name: b.name,
+        kind: b.kind || 'OTHER',
+        openingBalance: String(b.openingBalance || '0.00'),
+        balance: String(b.openingBalance || '0.00'),
+        movements: [],
+        createdAt: new Date().toISOString()
+      };
+      if (!state.benefits) state.benefits = [];
+      state.benefits.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    const wallets = (state.benefits || []).filter(w => pid === 'all' || w.profileId === pid);
+    return wallets.map(w => {
+      const balance = (w.movements || []).reduce((sum: number, m: any) => sum + (m.type === 'PURCHASE' ? -Number(m.amount) : Number(m.amount)), Number(w.openingBalance || 0));
+      return { ...w, balance: balance.toFixed(2) };
+    }) as unknown as T;
+  }
+
+  const movMatch = path.match(/^\/benefits\/([^/]+)\/movements/);
+  if (movMatch) {
+    const wid = movMatch[1];
+    const wallet = (state.benefits || []).find(w => w.id === wid);
+    if (!wallet) throw new Error('Benefício não encontrado');
+    if (!wallet.movements) wallet.movements = [];
+    const amt = Number(b?.amount || 0);
+    const currentBal = wallet.movements.reduce((sum: number, m: any) => sum + (m.type === 'PURCHASE' ? -Number(m.amount) : Number(m.amount)), Number(wallet.openingBalance || 0));
+    if (b.type === 'PURCHASE' && currentBal < amt) {
+      throw new Error('Saldo do benefício insuficiente');
+    }
+    const movement = {
+      id: 'mov-' + Date.now(),
+      walletId: wid,
+      type: b.type,
+      amount: String(b.amount),
+      description: b.description,
+      occurredAt: b.occurredAt || new Date().toISOString(),
+      referenceMonth: b.referenceMonth || null
+    };
+    wallet.movements.unshift(movement);
+    saveLocalState(state);
+    return movement as unknown as T;
+  }
+
+  const incSchedMatch = path.match(/^\/profiles\/([^/]+)\/income-schedules/);
+  if (incSchedMatch) {
+    const pid = incSchedMatch[1];
+    if (b?.name) {
+      const created = {
+        id: 'inc-' + Date.now(),
+        profileId: pid,
+        name: b.name,
+        amount: String(b.amount),
+        dayOfMonth: Number(b.dayOfMonth || 5),
+        accountId: b.accountId,
+        active: true,
+        createdAt: new Date().toISOString()
+      };
+      if (!state.incomeSchedules) state.incomeSchedules = [];
+      state.incomeSchedules.push(created);
+      saveLocalState(state);
+      return created as unknown as T;
+    }
+    return (state.incomeSchedules || []).filter(s => (pid === 'all' || s.profileId === pid) && s.active !== false) as unknown as T;
+  }
+
+  const delSchedMatch = path.match(/^\/income-schedules\/([^/]+)/);
+  if (delSchedMatch && method === 'DELETE') {
+    const sid = delSchedMatch[1];
+    const s = (state.incomeSchedules || []).find(x => x.id === sid);
+    if (s) s.active = false;
+    saveLocalState(state);
+    return { status: 'removed' } as unknown as T;
+  }
+
+  const dailyMatch = path.match(/^\/profiles\/([^/]+)\/daily-summary/);
+  if (dailyMatch) {
+    const pid = dailyMatch[1];
+    const urlParams = new URLSearchParams(path.split('?')[1] || '');
+    const days = Math.min(90, Math.max(7, Number(urlParams.get('days') || 30)));
+    const end = new Date();
+    const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() - days + 1));
+    const entries = state.entries.filter(e => (pid === 'all' || e.profileId === pid) && e.status === 'POSTED' && e.type === 'EXPENSE' && new Date(e.occurredAt) >= start && new Date(e.occurredAt) <= end);
+    const benefitMovements: any[] = [];
+    (state.benefits || []).filter(w => pid === 'all' || w.profileId === pid).forEach(w => {
+      (w.movements || []).filter((m: any) => m.type === 'PURCHASE' && new Date(m.occurredAt) >= start && new Date(m.occurredAt) <= end).forEach((m: any) => benefitMovements.push(m));
+    });
+    const points: any[] = [];
+    for (let i = 0; i < days; i++) {
+      const dt = new Date(start.getTime() + i * 86400000);
+      const key = dt.toISOString().slice(0, 10);
+      const same = entries.filter(e => e.occurredAt.slice(0, 10) === key);
+      const fromBen = benefitMovements.filter(m => m.occurredAt.slice(0, 10) === key);
+      const totalExp = same.reduce((sum, e) => sum + Number(e.amount), 0) + fromBen.reduce((sum, m) => sum + Number(m.amount), 0);
+      points.push({ date: key, expense: totalExp.toFixed(2), count: same.length + fromBen.length });
+    }
+    const registered = points.filter(p => p.count > 0);
+    const sorted = [...registered].sort((a, b) => Number(b.expense) - Number(a.expense));
+    return { days, points, highest: sorted[0] || null, lowest: sorted[sorted.length - 1] || null, hasHistory: registered.length > 0 } as unknown as T;
+  }
+
   if (path === '/system/reset') {
     const cleanState: LocalState = {
       profiles: [
@@ -558,7 +673,9 @@ function executeLocalApi<T>(path: string, body?: unknown, method?: string): T {
       goals: [],
       budgets: [],
       categories: DEFAULT_CATEGORIES,
-      investments: []
+      investments: [],
+      benefits: [],
+      incomeSchedules: []
     };
     saveLocalState(cleanState);
     return { success: true, message: 'Sistema zerado com sucesso.' } as unknown as T;
@@ -616,7 +733,7 @@ function App(){
   const [theme,setTheme]=useState<'light'|'dark'>(()=>(sessionStorage.getItem('vina_theme') as 'light'|'dark')||'light');
   const [profiles,setProfiles]=useState<Profile[]>([]);
   const [selected,setSelected]=useState('all');
-  const [tab,setTab]=useState('cash');
+  const [tab,setTab]=useState('daily');
   const [accounts,setAccounts]=useState<Account[]>([]);
   const [cards,setCards]=useState<Card[]>([]);
   const [entries,setEntries]=useState<Entry[]>([]);
@@ -1438,12 +1555,13 @@ function App(){
       <aside className={`sidebar ${mobileMenuOpen?'mobile-open':''} ${collapsed?'collapsed':''}`}>
         <div className="brand">
           <div className="brand-icon">V</div>
-          {(!collapsed||mobileMenuOpen)&&<div><h1>VINA FINACE</h1><span>v2.6 · Versão mobile</span></div>}
+          {(!collapsed||mobileMenuOpen)&&<div><h1>VINA FINACE</h1><span>v2.7 · Financeiro Diário</span></div>}
         </div>
 
         <div className="sidebar-scroll" onClick={(e)=>{ if((e.target as HTMLElement).closest('button')) setMobileMenuOpen(false); }}>
           {(!collapsed||mobileMenuOpen)&&<div className="nav-section-title">Operação & Caixa</div>}
-          <button className={`nav-item ${tab==='cash'?'active':''}`} onClick={()=>mobileNavigate('cash')} title="Meu Financeiro Diário"><Wallet size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Meu Financeiro Diário</span>}</button>
+          <button className={`nav-item ${tab==='daily'?'active':''}`} onClick={()=>mobileNavigate('daily')} title="Meu Financeiro Diário"><Wallet size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Meu Financeiro Diário</span>}</button>
+          <button className={`nav-item ${tab==='cash'?'active':''}`} onClick={()=>mobileNavigate('cash')} title="Meu Caixa Pessoal"><Wallet size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Meu Caixa Pessoal</span>}</button>
           <button className={`nav-item ${tab==='dashboard'?'active':''}`} onClick={()=>mobileNavigate('dashboard')} title="Dashboard Executivo"><LayoutDashboard size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Dashboard</span>}</button>
           <button className={`nav-item ${tab==='entries'?'active':''}`} onClick={()=>mobileNavigate('entries')} title="Central de Lançamentos"><ReceiptText size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Lançamentos</span>}</button>
           <button className={`nav-item ${tab==='accounts'?'active':''}`} onClick={()=>mobileNavigate('accounts')} title="Contas Bancárias & Vales"><Landmark size={18}/>{(!collapsed||mobileMenuOpen)&&<span>Contas & Vales</span>}</button>
@@ -1518,12 +1636,13 @@ function App(){
         {cloudGreeting&&<div style={{margin:'16px 32px 0',padding:'10px 16px',background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:'8px',color:'#15803d',display:'flex',alignItems:'center',gap:'8px',fontSize:'13px'}}><Sparkles size={16}/><span><strong>Vercel Global Config:</strong> {cloudGreeting}</span></div>}
 
         <div className="page">
+          {tab==='daily'&&<DailyFinance profileId={current?.id||null} accounts={accounts} entries={entries as any} commitments={commitments as any} request={<T,>(path:string,body?:unknown,method?:string)=>api<T>(path,token,body,method)} onNewAccount={handleNewAccount} onIncome={()=>openCashEntry('INCOME')} onExpense={()=>openCashEntry('EXPENSE')}/>}
           {tab==='cash'&&(
             <section className="panel" style={{display:'flex',flexDirection:'column',gap:'20px'}}>
               <div className="panel-title">
                 <div>
                   <h2 style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                    <Wallet size={22} color="#0d9488"/> Meu Financeiro Diário
+                    <Wallet size={22} color="#0d9488"/> Meu Caixa Pessoal
                   </h2>
                   <span style={{fontSize:'13px',color:'var(--text-muted)'}}>
                     VINA FINACE • {current ? current.name : 'Perfil Pessoal'} — Salário, Caixa, Benefícios e Previsões
@@ -3042,7 +3161,7 @@ function App(){
         </div>
       </div>}
       <nav className="mobile-bottom-nav" aria-label="Navegação principal mobile">
-        <button type="button" className={tab==='dashboard'?'active':''} onClick={()=>mobileNavigate('dashboard')}><LayoutDashboard size={21}/><span>Início</span></button>
+        <button type="button" className={tab==='daily'?'active':''} onClick={()=>mobileNavigate('daily')}><LayoutDashboard size={21}/><span>Início</span></button>
         <button type="button" className={tab==='cash'?'active':''} onClick={()=>mobileNavigate('cash')}><Wallet size={21}/><span>Meu caixa</span></button>
         <button type="button" className="mobile-add" aria-label="Novo lançamento" onClick={handleNewEntry}><Plus size={26}/><span>Lançar</span></button>
         <button type="button" className={tab==='entries'?'active':''} onClick={()=>mobileNavigate('entries')}><ReceiptText size={21}/><span>Extrato</span></button>

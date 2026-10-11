@@ -50,6 +50,8 @@ model Profile {
   goals       FinancialGoal[]
   budgets     Budget[]
   commitments Commitment[]
+  benefitWallets BenefitWallet[]
+  incomeSchedules IncomeSchedule[]
 }
 
 model Membership {
@@ -261,5 +263,58 @@ model Commitment {
   @@index([profileId, status])
 }
 
+// Versão 2.7: contas de benefícios não se misturam ao saldo bancário.
+enum BenefitKind {
+  MARKET
+  FUEL
+  OTHER
+}
 
+enum BenefitMovementType {
+  RECHARGE
+  PURCHASE
+  ADJUSTMENT
+}
 
+model BenefitWallet {
+  id             String            @id @default(uuid()) @db.Uuid
+  profileId      String            @db.Uuid
+  name           String
+  kind           BenefitKind
+  openingBalance Decimal           @default(0) @db.Decimal(18, 2)
+  createdAt      DateTime          @default(now())
+  profile        Profile           @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  movements      BenefitMovement[]
+
+  @@index([profileId])
+}
+
+model BenefitMovement {
+  id             String              @id @default(uuid()) @db.Uuid
+  walletId       String              @db.Uuid
+  type           BenefitMovementType
+  amount         Decimal             @db.Decimal(18, 2)
+  description    String
+  occurredAt     DateTime
+  // Recargas automáticas mensais usam chave determinística para evitar repetição.
+  referenceMonth String?
+  createdAt      DateTime            @default(now())
+  wallet         BenefitWallet       @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@unique([walletId,referenceMonth])
+  @@index([walletId, occurredAt])
+}
+
+model IncomeSchedule {
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @db.Uuid
+  name        String
+  amount      Decimal  @db.Decimal(18, 2)
+  dayOfMonth  Int
+  accountId   String   @db.Uuid
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}

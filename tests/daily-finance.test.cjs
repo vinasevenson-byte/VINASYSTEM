@@ -1,0 +1,11 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
+const root=path.join(__dirname,'..');const read=p=>fs.readFileSync(path.join(root,p),'utf8');const schema=read('apps/api/prisma/schema.prisma'),routes=read('apps/api/src/routes.ts'),frontend=read('apps/web/src/DailyFinance.tsx'),main=read('apps/web/src/main.tsx');
+test('carteiras de benefícios separadas do caixa bancário',()=>{assert.match(schema,/model BenefitWallet/);assert.match(schema,/model BenefitMovement/);assert.match(frontend,/Não inclui vales/)});
+test('benefícios acumulativos sem reset mensal',()=>{assert.match(routes,/w\.openingBalance/);assert.match(routes,/m\.type==='PURCHASE'/);assert.doesNotMatch(routes,/openingBalance:\s*new Decimal\(900\)/)});
+test('recarga mensal idempotente por carteira',()=>{assert.match(schema,/@\@unique\(\[walletId,referenceMonth\]\)/);assert.match(routes,/referenceMonth/)});
+test('compra sem saldo negativo usa lock no banco',()=>{assert.match(routes,/FOR UPDATE/);assert.match(routes,/Saldo do benefício insuficiente/)});
+test('acesso a perfil verificado nos endpoints novos',()=>{assert.match(routes,/async benefitWallets[\s\S]*?this\.member\(req\.userId,id\)/);assert.match(routes,/async dailySummary[\s\S]*?this\.member\(req\.userId,id\)/)});
+test('sem seed de salários e saldo demonstrativos',()=>{assert.doesNotMatch(frontend,/5200\.00|4850\.00|780\.00/);assert.match(frontend,/Nenhum benefício cadastrado/)});
+test('resumo diário só contabiliza despesas realizadas',()=>{assert.match(routes,/status:'POSTED',type:'EXPENSE'/);assert.match(frontend,/highest/);assert.match(frontend,/lowest/)});
+test('previsão baseada em compromissos e salário cadastrado',()=>{assert.match(frontend,/schedules,commitments,entries/);assert.match(frontend,/não credita dinheiro automaticamente/);assert.match(frontend,/projection\(/)});
+test('atalho inicial do mobile entra no painel diário',()=>{assert.match(main,/useState\('daily'\)/);assert.match(main,/mobileNavigate\('daily'\)/)});

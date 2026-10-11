@@ -9,6 +9,9 @@ import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import { Decimal } from '@prisma/client/runtime/library';
 
+class BenefitWalletDto { @IsString() @IsNotEmpty() name!:string; @IsIn(['MARKET','FUEL','OTHER']) kind!:'MARKET'|'FUEL'|'OTHER'; @Matches(/^\d{1,16}(\.\d{1,2})?$/) openingBalance!:string; }
+class BenefitMovementDto { @IsIn(['RECHARGE','PURCHASE']) type!:'RECHARGE'|'PURCHASE'; @Matches(/^\d{1,16}(\.\d{1,2})?$/) amount!:string; @IsString() @IsNotEmpty() description!:string; @IsISO8601() occurredAt!:string; @IsOptional() @Matches(/^\d{4}-\d{2}$/) referenceMonth?:string; }
+class IncomeScheduleDto { @IsString() @IsNotEmpty() name!:string; @Matches(/^\d{1,16}(\.\d{1,2})?$/) amount!:string; @IsInt() @Min(1) @Max(31) dayOfMonth!:number; @IsUUID() accountId!:string; }
 class RegisterDto { @IsString() @MinLength(2) name!:string; @IsString() @IsNotEmpty() email!:string; @IsString() @MinLength(6) password!:string; }
 class LoginDto { @IsString() @IsNotEmpty() email!:string; @IsString() password!:string; }
 class NameDto { @IsString() @IsNotEmpty() name!:string; }
@@ -303,9 +306,71 @@ class AdvisorQueryDto {
   },b.question);
  }
 
+  // MEU FINANCEIRO DIÁRIO — os saldos vêm exclusivamente do banco real.
+  @Get('profiles/:id/benefits') async benefitWallets(@Req() req:any,@Param('id') id:string){
+   await this.member(req.userId,id);
+   const wallets=await this.db.benefitWallet.findMany({where:{profileId:id},include:{movements:{orderBy:{occurredAt:'desc'}}},orderBy:{createdAt:'asc'}});
+   return wallets.map(w=>{const balance=w.movements.reduce((sum,m)=>sum.plus(m.type==='PURCHASE'?m.amount.negated():m.amount),w.openingBalance);return {...w,balance:balance.toFixed(2)};});
+  }
+  @Post('profiles/:id/benefits') async createBenefitWallet(@Req() req:any,@Param('id') id:string,@Body() b:BenefitWalletDto){
+   await this.member(req.userId,id,true);
+   const balance=new Decimal(b.openingBalance);
+   return this.db.benefitWallet.create({data:{profileId:id,name:b.name,kind:b.kind,openingBalance:balance}});
+  }
+  @Post('benefits/:id/movements') async benefitMovement(@Req() req:any,@Param('id') id:string,@Body() b:BenefitMovementDto){
+   const wallet=await this.db.benefitWallet.findUnique({where:{id}});
+   if(!wallet)throw new NotFoundException('Benefício não encontrado');
+   await this.member(req.userId,wallet.profileId,true);
+   const amount=this.positive(b.amount);
+   if(b.type==='PURCHASE'&&b.referenceMonth)throw new BadRequestException('Referência mensal é exclusiva para recargas');
+   if(b.type==='RECHARGE'&&b.referenceMonth&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(b.referenceMonth))throw new BadRequestException('Mês inválido');
+   return this.db.$transaction(async tx=>{
+    // Serializa movimentações desta carteira para não permitir saldo negativo por concorrência.
+    await tx.$queryRaw`SELECT id FROM "BenefitWallet" WHERE id = ${id}::uuid FOR UPDATE`;
+    if(b.type==='PURCHASE'){
+     const movements=await tx.benefitMovement.findMany({where:{walletId:id}});
+     const balance=movements.reduce((v,m)=>v.plus(m.type==='PURCHASE'?m.amount.negated():m.amount),wallet.openingBalance);
+     if(balance.lt(amount))throw new BadRequestException('Saldo do benefício insuficiente');
+    }
+    const movement=await tx.benefitMovement.create({data:{walletId:id,type:b.type,amount,description:b.description,occurredAt:new Date(b.occurredAt),referenceMonth:b.type==='RECHARGE'?(b.referenceMonth||null):null}});
+    return movement;
+   });
+  }
+  @Get('profiles/:id/income-schedules') async incomeSchedules(@Req() req:any,@Param('id') id:string){await this.member(req.userId,id);return this.db.incomeSchedule.findMany({where:{profileId:id,active:true},orderBy:{dayOfMonth:'asc'}});}
+  @Post('profiles/:id/income-schedules') async addIncomeSchedule(@Req() req:any,@Param('id') id:string,@Body() b:IncomeScheduleDto){
+   await this.member(req.userId,id,true);
+   const account=await this.db.account.findFirst({where:{id:b.accountId,profileId:id}});
+   if(!account)throw new BadRequestException('Conta de recebimento inválida');
+   const amount=this.positive(b.amount);
+   return this.db.incomeSchedule.create({data:{profileId:id,name:b.name,amount,dayOfMonth:b.dayOfMonth,accountId:b.accountId}});
+  }
+  @Delete('income-schedules/:id') async removeIncomeSchedule(@Req() req:any,@Param('id') id:string){
+   const item=await this.db.incomeSchedule.findUnique({where:{id}});
+   if(!item)throw new NotFoundException('Agendamento não encontrado');
+   await this.member(req.userId,item.profileId,true);
+   return this.db.incomeSchedule.update({where:{id},data:{active:false}});
+  }
+  @Get('profiles/:id/daily-summary') async dailySummary(@Req() req:any,@Param('id') id:string,@Query('days') rawDays?:string){
+   await this.member(req.userId,id);
+   const days=Math.min(90,Math.max(7,Number(rawDays)||30));
+   const end=new Date();const start=new Date(Date.UTC(end.getUTCFullYear(),end.getUTCMonth(),end.getUTCDate()-days+1));
+   const [entries,benefits]=await Promise.all([
+    this.db.entry.findMany({where:{profileId:id,status:'POSTED',type:'EXPENSE',occurredAt:{gte:start,lte:end}},select:{amount:true,occurredAt:true}}),
+    this.db.benefitMovement.findMany({where:{wallet:{profileId:id},type:'PURCHASE',occurredAt:{gte:start,lte:end}},select:{amount:true,occurredAt:true}})
+   ]);
+   const points=[] as {date:string,expense:string,count:number}[];
+   for(let i=0;i<days;i++){const dt=new Date(start.getTime()+i*86400000);const key=dt.toISOString().slice(0,10);const same=entries.filter(e=>e.occurredAt.toISOString().slice(0,10)===key);const fromBenefits=benefits.filter(e=>e.occurredAt.toISOString().slice(0,10)===key);points.push({date:key,expense:[...same,...fromBenefits].reduce((a,e)=>a.plus(e.amount),new Decimal(0)).toFixed(2),count:same.length+fromBenefits.length});}
+   const registered=points.filter(p=>p.count>0);
+   const sorted=[...registered].sort((a,b)=>Number(b.expense)-Number(a.expense));
+   return {days,points,highest:sorted[0]||null,lowest:sorted[sorted.length-1]||null,hasHistory:registered.length>0};
+  }
+
   @Post('system/reset')
   async resetSystem(@Req() req: any) {
     await this.db.auditLog.deleteMany({});
+    await this.db.benefitMovement.deleteMany({});
+    await this.db.benefitWallet.deleteMany({});
+    await this.db.incomeSchedule.deleteMany({});
     await this.db.cardPurchase.deleteMany({});
     await this.db.invoice.deleteMany({});
     await this.db.creditCard.deleteMany({});

@@ -1,10 +1,10 @@
 # VINASYSTEM — VINA FINACE
 
 > **VINA FINACE — ERP de Gestão Financeira Pessoal e Familiar**<br>
-> **Versão 1.3** — Plataforma financeira moderna, segura e multiperfis construída com React 19, TypeScript, Node.js (NestJS), Tailwind CSS e PostgreSQL com Prisma ORM.
+> **Versão 2.7** — Plataforma financeira moderna, segura, mobile-first e multiperfis construída com React 19, TypeScript, Node.js (NestJS), Tailwind CSS e PostgreSQL com Prisma ORM.
 
 [![Production Deployment](https://img.shields.io/badge/Vercel-Deployed-000000?style=for-the-badge&logo=vercel&logoColor=white)](https://vinasystem-vert.vercel.app/)
-[![Invariants Tests](https://img.shields.io/badge/Invariants_Tests-6%2F6_Passing-success?style=for-the-badge)](tests/invariants.test.cjs)
+[![Invariants Tests](https://img.shields.io/badge/Invariants_Tests-17%2F17_Passing-success?style=for-the-badge)](tests/)
 ![License: Proprietary](https://img.shields.io/badge/License-Proprietary-blue?style=for-the-badge)
 
 ---
@@ -146,9 +146,27 @@ Acesse localmente em: **`http://localhost:5173`**
 
 ---
 
-## 🧪 Testes de Invariantes e Integridade
+## 📁 Estrutura de Diretórios e Regras Oficiais
 
-O projeto conta com suíte de testes estáticos e de invariantes contábeis:
+O projeto adota estrutura monorepo padronizada com separação estrita de responsabilidades:
+
+- **`apps/api/`**: Backend NestJS, modelos Prisma, serviços de auditoria e rotas da API.
+- **`apps/web/`**: Frontend React 19 + Vite, Meu Financeiro Diário e layout responsivo.
+- **`packages/database/`**: Configurações de banco de dados e Prisma Client.
+- **`packages/shared/`**: Lógicas de negócio compartilhadas, motores de cálculo e tipos.
+- **`api/`**: Funções serverless da Vercel (`/api/welcome`, `/api/config`).
+- **`tests/`**: Testes automatizados de invariantes contábeis e integridade financeira diária.
+- **`scripts/`**: Scripts de banco de dados e automações.
+- **`docs/`**: Documentação técnica organizada em `architecture/`, `guides/`, `sql/` e `updates/`.
+- **`archives/`**: Repositório de pacotes `.zip` e backups históricos.
+
+> 📖 Consulte as diretrizes detalhadas em [ESTRUTURA_E_REGRAS.md](file:///E:/VINASYSTEM/docs/architecture/ESTRUTURA_E_REGRAS.md).
+
+---
+
+## 🧪 Testes de Invariantes e Integridade (17/17)
+
+O projeto conta com suíte completa de testes estáticos de invariantes contábeis e Meu Financeiro Diário:
 
 ```powershell
 npm.cmd test
@@ -156,13 +174,24 @@ npm.cmd test
 
 Resultado verificado:
 
+- ✔ Carteiras de benefícios separadas do caixa bancário
+- ✔ Benefícios acumulativos sem reset mensal
+- ✔ Recarga mensal idempotente por carteira
+- ✔ Compra sem saldo negativo usa lock no banco
+- ✔ Acesso a perfil verificado nos endpoints novos
+- ✔ Sem seed de salários e saldo demonstrativos
+- ✔ Resumo diário só contabiliza despesas realizadas
+- ✔ Previsão baseada em compromissos e salário cadastrado
+- ✔ Atalho inicial do mobile entra no painel diário
 - ✔ Perfil protegido em consultas e gravações
 - ✔ Transferência exige autorização dos dois perfis e atomicidade
 - ✔ Transferências são excluídas de receitas e despesas
 - ✔ Chaves de integridade ligam lançamentos a contas no mesmo perfil
 - ✔ Sessão não é persistida em localStorage
 - ✔ Cabeçalho Authorization exige Bearer estrito
-- **Total: 6/6 aprovados (100%)**
+- ✔ Categorias exigem perfil autorizado, tipo e nome
+- ✔ Edição de lançamentos valida conta, categoria, autorização e impede transferência isolada
+- **Total: 17/17 aprovados (100%)**
 
 ---
 

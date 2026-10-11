@@ -7,8 +7,9 @@
     "apps/*"
   ],
   "scripts": {
-    "test": "node --test tests/invariants.test.cjs",
+    "test": "node --test tests/invariants.test.cjs tests/daily-finance.test.cjs",
     "test:invariants": "node --test tests/invariants.test.cjs",
+    "test:daily": "node --test tests/daily-finance.test.cjs",
     "dev:web": "npm run dev --workspace=@boma/web",
     "dev:api": "npm run dev --workspace=@boma/api",
     "dev": "npm run dev:web",
